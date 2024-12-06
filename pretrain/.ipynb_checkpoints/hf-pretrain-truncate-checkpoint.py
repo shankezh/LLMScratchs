@@ -1,7 +1,10 @@
 import torch
 from transformers import AutoTokenizer, TrainingArguments, DataCollatorForLanguageModeling, Trainer, AutoConfig,AutoModel
-from hf_gpt_model import GMQModel,GMQConfig
 from datasets import load_dataset
+import sys,os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from model.hf_gpt_model import GMQModel,GMQConfig
+
 
 
 # 当前预训练数据单组最大长度是708个token，+1个endoftext
@@ -50,7 +53,7 @@ def get_training_args():
 
 
     training_args = TrainingArguments(
-        output_dir="../results_truncate",  # 输出模型和检查点的目录
+        output_dir="./results_truncate",  # 输出模型和检查点的目录
         overwrite_output_dir=True,
         # num_train_epochs=num_epochs,
         max_steps=max_steps,  # 使用 max_steps 替代 num_train_epochs
@@ -121,10 +124,10 @@ if __name__ == '__main__':
     training_args = get_training_args()
 
     # 训练数据
-    train_dataset = load_dataset("json", keep_in_memory=True, data_files="pretrain_train.json", split="train", streaming=True)
+    train_dataset = load_dataset("json", keep_in_memory=True, data_files="../data/pretrain_train.json", split="train", streaming=True)
 
     # 验证数据
-    eval_dataset = load_dataset("json", keep_in_memory=True,data_files = "pretrain_val.json", split="train", streaming=True)
+    eval_dataset = load_dataset("json", keep_in_memory=True,data_files = "../data/pretrain_val.json", split="train", streaming=True)
 
     # 使用批处理进行标记化，填充
     tokenized_train_dataset = train_dataset.map(
@@ -157,5 +160,6 @@ if __name__ == '__main__':
             eval_dataset = tokenized_eval_dataset,
         )
 
-        trainer.train(resume_from_checkpoint=True)
-        trainer.save_model("../results_truncate/gmq_pretrain_truncate")
+        # trainer.train(resume_from_checkpoint=True)
+        trainer.train()
+        trainer.save_model("./results_truncate/gmq_pretrain_truncate")

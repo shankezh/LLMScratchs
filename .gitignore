@@ -13,3 +13,12 @@ Thumbs.db       # Windows 缩略图缓存
 # only keep empty folder
 data/*
 !data/.gitkeep
+
+# 忽略名为 logs 的文件夹
+logs/
+
+# 忽略名为 wandb 的文件夹
+wandb/
+
+# 忽略所有以 result 为前缀的文件夹
+result*/
