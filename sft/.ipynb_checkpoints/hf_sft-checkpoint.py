@@ -8,7 +8,7 @@ from model.hf_gpt_model import GMQModel,GMQConfig
 
 
 
-default_system = "你叫GMQ, 是Hogen创造的你,你是一个擅长回答问题的助手."
+default_system = "你的名字是良智,你是一个擅长回答问题的人工智能助手."
 
 def fill_template(system, conversations):
     if not system:
@@ -98,9 +98,9 @@ def get_training_args():
         gradient_accumulation_steps=gradient_accumulation_steps,
         logging_dir="./logs",  # 日志保存目录
         logging_steps=48,
-        save_steps=3840,
+        save_steps=960,
         save_total_limit=3,
-        learning_rate=1e-4,
+        learning_rate=1e-5,
         weight_decay=0.01,
         torch_compile=True,
         max_grad_norm=1.0,  # 启用梯度裁剪，限制最大梯度范数为1.0
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    llm_model_path = "/root/autodl-tmp/llm/GMQ-0.1B/gmq_pretrain_truncate"
+    llm_model_path = "../pretrain/results/gmq_pretrain"
     tokenizer_model_path = "Qwen/Qwen2.5-0.5B-Instruct"
 
     model, tokenizer = init_model_and_tokenizer(llm_model_path, tokenizer_model_path, device)

@@ -10,6 +10,8 @@ Thumbs.db       # Windows 缩略图缓存
 *.pyc
 *.pyo
 
+*.ipynb*
+
 # only keep empty folder
 data/*
 !data/.gitkeep
