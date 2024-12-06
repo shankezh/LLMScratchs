@@ -3,6 +3,7 @@ import torch
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from model.hf_gpt_model import GMQModel,GMQConfig
+from utilities import check_network_params
 
 
 def get_prompts():
@@ -34,14 +35,14 @@ def get_prompts():
     ]
     return prompt_datas
 
-default_system = r'你是"GMQ", 一个乐于助人的助手.'
+default_system = r'你的名字是良智,你是一个擅长回答问题的人工智能助手.'
 
 def generate_template(system, prompt):
     if not system:
         system = default_system
     template = f"<|im_start|>system\n{system}<|im_end|>"
     template += f"\n<|im_start|>user\n{prompt}<|im_end|>"
-    template += f"\n<|im_start|>assistant"
+    template += f"\n<|im_start|>assistant\n"
     return template
 
 if __name__ == '__main__':
@@ -54,12 +55,13 @@ if __name__ == '__main__':
     AutoModel.register(GMQConfig, GMQModel)
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    model_file = "../results_sft/checkpoint-148835"
+    model_file = "./results_sft/checkpoint-25920"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
     model.to(device)
     model.eval()
+    check_network_params(model)
     eval_prompts = get_prompts()
 
     # for prompt in eval_prompts:

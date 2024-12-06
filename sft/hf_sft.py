@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    llm_model_path = "../pretrain/results/gmq_pretrain"
+    llm_model_path = "../pretrain/results/gmq_pretrain_truncate"
     tokenizer_model_path = "Qwen/Qwen2.5-0.5B-Instruct"
 
     model, tokenizer = init_model_and_tokenizer(llm_model_path, tokenizer_model_path, device)
@@ -162,8 +162,8 @@ if __name__ == '__main__':
         # eval_dataset=tokenized_eval_dataset,
     )
 
-    trainer.train()
-    # trainer.train(resume_from_checkpoint=True)
+    # trainer.train()
+    trainer.train(resume_from_checkpoint=True)
     trainer.save_model("./results_sft/gmq_sft")
 
 
