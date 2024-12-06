@@ -13,7 +13,7 @@
 
 
 # How-to-Start-SFT
-> python hf_sft.py
+> 'python hf_sft.py'
 
 # How-to-Eval.
 >python hf_sft_eval.py
