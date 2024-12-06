@@ -13,9 +13,11 @@
 
 
 # How-to-Start-SFT
-```python
-'python hf_sft.py'
-
+```shell
+python hf_sft.py
+```
 # How-to-Eval.
->python hf_sft_eval.py
+```shell
+python hf_sft_eval.py
+```
 note: 请注意修改对应的权重文件的位置.
