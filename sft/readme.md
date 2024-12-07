@@ -45,4 +45,5 @@ note: 请注意修改对应的权重文件的位置.
 # Refs
 [1] [LLMs from Scratchs ch7] (https://github.com/rasbt/LLMs-from-scratch) <br>
 [2] [火山方舟文档](https://www.volcengine.com/docs/82379/1221664#%E4%B8%80%E4%BA%9B%E5%BB%BA%E8%AE%AE) <br>
+[3] [Qwen官方文档](https://qwen.readthedocs.io/zh-cn/latest/getting_started/concepts.html) <br>
 
