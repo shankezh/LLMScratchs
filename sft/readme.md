@@ -11,8 +11,19 @@
 > hf_sft_eval.py 评估代码，由于设置了CPU处理，因此可以一边使用GPU训练，一边选择自己的模型进行效果评估展示.<br>
 
 # DataFormat
+## 训练数据
 这里使用了sharegpt风格的数据进行处理，所以请将数据格式转换成对应形式，否则请自行实现数据处理部分.<br>
-数据样例[LLaMA-Factory sharegpt中文样例形式](https://github.com/hiyouga/LLaMA-Factory/blob/main/data/glaive_toolcall_zh_demo.json)
+数据样例[LLaMA-Factory sharegpt中文样例形式](https://github.com/hiyouga/LLaMA-Factory/blob/main/data/glaive_toolcall_zh_demo.json) <br>
+## 处理形式
+处理形式很多，这里借用了Qwen2.5的处理形式，这样写的好处是方便以后使用千问的基座模型做微调.
+```shell
+<|im_start|>system
+{system_prompt}<|im_end|>
+<|im_start|>user
+{user_prompt}<|im_end|>
+<|im_start|>assistant
+{assistant_prompt}<|im_end|>
+```
 
 # Experiments
 1. 对于数据集，对每个批次取其中长度最大的tokens的值，将当前批次的数据集填充至等长后进行训练，这种策略会加快训练速度，考虑到不等长的数据情况。<br>
