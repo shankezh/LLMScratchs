@@ -55,7 +55,7 @@ if __name__ == '__main__':
     AutoModel.register(GMQConfig, GMQModel)
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    model_file = "./results_sft/checkpoint-25920"
+    model_file = "./results_sft/checkpoint-43200"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
