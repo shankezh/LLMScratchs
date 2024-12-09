@@ -6,10 +6,17 @@
 ../sft
 ../sft/hf_sft.py
 ../sft/hf_sft_eval.py
+../sft/sft_data_builder.py
 ```
 > hf_sft.py 基于Huggingface的相关API实现的SFT训练代码，为什么不使用SFT_Trainer, 因为SFT_Trainer只支持全量加载数据，考虑到有时候数据集可能较大，因此依旧使用了Trainer+流式数据的形式，但是原理是一样的，没区别.<br>
 > hf_sft_eval.py 评估代码，由于设置了CPU处理，因此可以一边使用GPU训练，一边选择自己的模型进行效果评估展示.<br>
-
+> sft_data_builder.py 用于转换FireFly数据集至ShareGPT格式,但转换后需要配合使用shell命令去除其中尾部的错误标志，shell命令见下方.<br>
+  > ```shell
+    sed -i '$d' sft_data_general.json # 删除最后一行的"]"
+    sed -i '$d' sft_data_general.json # 继续删除最后一行的"},"
+    sed -i '$ s/$/}]/' sft_data_general.json # 在最后一行添加"}]"
+    ```
+## 数据相关
 本项目使用SFT数据集地址：
 [Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
 
