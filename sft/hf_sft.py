@@ -4,20 +4,52 @@ from trl import SFTConfig, SFTTrainer
 from datasets import load_dataset
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_gpt_model import GMQModel,GMQConfig
 
 
 
-default_system = "你的名字是良智,你是一个擅长回答问题的人工智能助手."
+default_system = "你的名字是良智,是一个擅长回答问题的AI助手,请一步步地思考然后再帮助用户回答问题."
+pre_sys = "你叫良智，是一名多功能的 AI 助手，当前的任务类型是："
+
+task_descriptions = {
+    "NLI": "自然语言推理。",
+    "TextMatching": "文本匹配。",
+    "StoryGeneration": "故事生成。",
+    "ProductDesc": "商品文案生成。",
+    "Summary": "文本摘要。",
+    "AncientPoem": "古诗生成。",
+    "NER": "实体识别。",
+    "SentimentAnalyze": "情感分析。",
+    "TextCorrection": "文本纠错。",
+    "Couplet": "对对联。",
+    "MusicComment": "生成音乐热评。",
+    "KeywordRecognition": "关键词识别。",
+    "ClassicalChinese": "翻译成文言文。",
+    "Cot": "思维链思考。",
+    "LyricGeneration": "歌词生成。",
+    "Translation": "中英翻译。",
+    "OpenQA": "开放问答。",
+    "Composition": "作文生成。",
+    "MRC": "阅读理解。",
+    "JinYongGeneration": "金庸风格小说生成。",
+    "Dictionary": "成语释义。",
+}
 
 def fill_template(system, conversations):
     if not system:
         system = default_system
+    else:
+        system = pre_sys + task_descriptions.get(system, default_system)
     template = f"<|im_start|>system\n{system}{tokenizer.eos_token}"
 
     for message in conversations:
         role = message["from"]
-        role = "user" if role == "human" else role
+        if role == "human":
+            role = "user"
+        elif role == "gpt":
+            role = "assistant"    
+        # role = "user" if role == "human" else role
         content = message["value"]
         template += f"\n<|im_start|>{role}\n{content}{tokenizer.eos_token}"
         template += tokenizer.pad_token
@@ -79,7 +111,8 @@ def init_model_and_tokenizer(llm_path, tokenizer_path, device):
 
 
 def get_training_args():
-    total_data_size = 7144091
+    # total_data_size = 7144091
+    total_data_size = 1649399
     per_device_train_batch_size = 6
     gradient_accumulation_steps = 8
     # 计算总步数
@@ -99,8 +132,8 @@ def get_training_args():
         logging_dir="./logs",  # 日志保存目录
         logging_steps=48,
         save_steps=960,
-        save_total_limit=3,
-        learning_rate=1e-5,
+        save_total_limit=5,
+        learning_rate=3e-5,
         weight_decay=0.01,
         torch_compile=True,
         max_grad_norm=1.0,  # 启用梯度裁剪，限制最大梯度范数为1.0
@@ -127,7 +160,7 @@ if __name__ == '__main__':
     model, tokenizer = init_model_and_tokenizer(llm_model_path, tokenizer_model_path, device)
 
     # 训练数据
-    train_dataset = load_dataset("json", keep_in_memory=True, data_files="../data/sft_data_single.json", split="train",
+    train_dataset = load_dataset("json", keep_in_memory=True, data_files="../data/sft_data_general.json", split="train",
                                  streaming=True)
 
     # # 验证数据

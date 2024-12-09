@@ -12,7 +12,7 @@ def get_prompts():
         '中国的首都是哪里？',
         '中国有哪些比较好的大学？',
         '全世界最好的大学是什么？',
-        '怎样自学易经？',
+        '请翻译成英文：我爱你',
         '你知道长江吗？',
         '人类的血液主要由哪些成分组成？',
         '第一颗人造卫星是哪个国家发射的？',
@@ -35,7 +35,7 @@ def get_prompts():
     ]
     return prompt_datas
 
-default_system = r'你的名字是良智,你是一个擅长回答问题的人工智能助手.'
+default_system = r'你的名字是良智,是一个擅长回答问题的AI助手,请一步步地思考然后再帮助用户回答问题.'
 
 def generate_template(system, prompt):
     if not system:
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     AutoModel.register(GMQConfig, GMQModel)
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    model_file = "./results_sft/checkpoint-43200"
+    model_file = "./results_sft/checkpoint-26880"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
