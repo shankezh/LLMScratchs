@@ -14,8 +14,9 @@
   > ```shell
   > sed -i '$d' sft_data_general.json # 删除最后一行的"]"
   > sed -i '$d' sft_data_general.json # 继续删除最后一行的"},"
-  >  sed -i '$ s/$/}]/' sft_data_general.json # 在最后一行添加"}]"
+  > sed -i '$ s/$/}]/' sft_data_general.json # 在最后一行添加"}]"
   >  ```
+
 ## 数据相关
 本项目使用SFT数据集地址：
 [Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
