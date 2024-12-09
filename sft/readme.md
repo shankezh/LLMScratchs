@@ -10,6 +10,9 @@
 > hf_sft.py 基于Huggingface的相关API实现的SFT训练代码，为什么不使用SFT_Trainer, 因为SFT_Trainer只支持全量加载数据，考虑到有时候数据集可能较大，因此依旧使用了Trainer+流式数据的形式，但是原理是一样的，没区别.<br>
 > hf_sft_eval.py 评估代码，由于设置了CPU处理，因此可以一边使用GPU训练，一边选择自己的模型进行效果评估展示.<br>
 
+本项目使用SFT数据集地址：
+[Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
+
 # DataFormat
 ## 训练数据
 这里使用了sharegpt风格的数据进行处理，所以请将数据格式转换成对应形式，否则请自行实现数据处理部分.<br>
