@@ -9,7 +9,7 @@ from utilities import check_network_params
 def get_prompts():
     prompt_datas = [
         '你叫什么名字',
-        '中国的首都是哪里？',
+        '以春天为主题写一首诗',
         '中国有哪些比较好的大学？',
         '全世界最好的大学是什么？',
         '请翻译成英文：我爱你',
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     AutoModel.register(GMQConfig, GMQModel)
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    model_file = "./results_sft/checkpoint-26880"
+    model_file = "./results_sft/checkpoint-34362"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
