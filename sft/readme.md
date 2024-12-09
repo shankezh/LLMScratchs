@@ -12,10 +12,10 @@
 > hf_sft_eval.py 评估代码，由于设置了CPU处理，因此可以一边使用GPU训练，一边选择自己的模型进行效果评估展示.<br>
 > sft_data_builder.py 用于转换FireFly数据集至ShareGPT格式,但转换后需要配合使用shell命令去除其中尾部的错误标志，shell命令见下方.<br>
   > ```shell
-    sed -i '$d' sft_data_general.json # 删除最后一行的"]"
-    sed -i '$d' sft_data_general.json # 继续删除最后一行的"},"
-    sed -i '$ s/$/}]/' sft_data_general.json # 在最后一行添加"}]"
-    ```
+  > sed -i '$d' sft_data_general.json # 删除最后一行的"]"
+  > sed -i '$d' sft_data_general.json # 继续删除最后一行的"},"
+  >  sed -i '$ s/$/}]/' sft_data_general.json # 在最后一行添加"}]"
+  >  ```
 ## 数据相关
 本项目使用SFT数据集地址：
 [Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
