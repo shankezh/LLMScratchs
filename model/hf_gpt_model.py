@@ -122,7 +122,6 @@ if __name__ == '__main__':
     )
     print(output)
     generated_tokens = tokenizer.decode(output[0], skip_special_tokens=False)
-    print(generated_tokens)
 
 
 
