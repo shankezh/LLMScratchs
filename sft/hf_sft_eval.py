@@ -21,8 +21,6 @@ def get_prompts():
         '将以下英文句子翻译成中文：\n‘The weather today is sunny and pleasant.’',
         '为《射雕英雄传》中的郭靖设计一个新的冒险情节。',
         '给出以下逻辑题的详细推理过程：\n‘如果今天是周五，那么三天后是周几？’'
-        
-
     ]
     return prompt_datas
 
