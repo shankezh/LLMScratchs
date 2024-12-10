@@ -8,30 +8,21 @@ from utilities import check_network_params
 
 def get_prompts():
     prompt_datas = [
-        '你叫什么名字',
-        '以春天为主题写一首诗',
-        '中国有哪些比较好的大学？',
-        '全世界最好的大学是什么？',
-        '请翻译成英文：我爱你',
-        '你知道长江吗？',
-        '人类的血液主要由哪些成分组成？',
-        '第一颗人造卫星是哪个国家发射的？',
-        '你知道杭州有什么美食吗？',
-        '你知道泰山在哪里吗？',
-        '地球上最大的动物是什么？',
-        '地球自转一圈大约需要多少时间？',
-        '人类最早使用的金属是什么？',
-        '水的化学分子式是什么？',
-        '大气层中含量最多的气体是什么？',
-        '世界上最高的山峰是什么？',
-        '你知道世界上最深的海沟是什么吗？',
-        '最早发明印刷术的是哪个国家？',
-        '万有引力是谁提出的？',
-        '光合作用的主要原理是什么？',
-        '你知道大熊猫的主要食物是什么吗？',
-        '海水为什么是咸的？',
-        '我们平时喝的牛奶主要含有什么营养成分？',
-        '一星期有多少天？'
+        '什么是量子力学的基本原理？',
+        '地球上有哪些重要的生态系统？',
+        '写一个关于‘健康饮食’的短促销文案。',
+        '以下两段话是否表达相同的意思？\n1. 我喜欢阅读。\n2. 阅读让我感到快乐。',
+        '以一个迷失的探险家为主角，写一个惊险的短篇故事。',
+        '以‘春天’为主题，写一首五言绝句。',
+        '写一个 Python 程序，计算一个列表中所有元素的平均值。',
+        '从以下句子中提取出人名和地名：\n‘爱丽丝在巴黎度过了一个美好的假期。’',
+        '分析以下评论的情感倾向（正面/中性/负面）：\n‘这款手机性能非常强大，但电池续航让我失望。',
+        '请说明‘一箭双雕’的含义。',
+        '将以下英文句子翻译成中文：\n‘The weather today is sunny and pleasant.’',
+        '为《射雕英雄传》中的郭靖设计一个新的冒险情节。',
+        '给出以下逻辑题的详细推理过程：\n‘如果今天是周五，那么三天后是周几？’'
+        
+
     ]
     return prompt_datas
 
@@ -55,7 +46,8 @@ if __name__ == '__main__':
     AutoModel.register(GMQConfig, GMQModel)
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    model_file = "./results_sft/checkpoint-34362"
+    # model_file = "./results_sft/checkpoint-34362"
+    model_file = "./results_sft/gmq_sft"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
@@ -78,8 +70,8 @@ if __name__ == '__main__':
             # print(input_ids.shape)
             output = model.generate(
                 input_ids=input_ids['input_ids'],
-                max_length=100,
-                temperature=0.7,
+                max_length=200,
+                temperature=1.0,
                 top_k=50,
                 top_p=0.9,
                 attention_mask = input_ids['attention_mask'],
