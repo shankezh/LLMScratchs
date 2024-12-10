@@ -34,18 +34,16 @@ task_descriptions = {
 def get_prompts():
     prompt_datas = [
         '实体识别： 同时，香港人也决心保证充分实施基本法。 抽取出文中所有的实体',
-        '鹄峙鸾翔 这个成语的意思是什么？',
-        '写一个关于‘健康饮食’的短促销文案。',
-        '以下两段话是否表达相同的意思？\n1. 我喜欢阅读。\n2. 阅读让我感到快乐。',
-        '以一个迷失的探险家为主角，写一个惊险的短篇故事。',
-        '以‘春天’为主题，写一首五言绝句。',
-        '写一个 Python 程序，计算一个列表中所有元素的平均值。',
-        '从以下句子中提取出人名和地名：\n‘爱丽丝在巴黎度过了一个美好的假期。’',
-        '分析以下评论的情感倾向（正面/中性/负面）：\n‘这款手机性能非常强大，但电池续航让我失望。',
-        '请说明‘一箭双雕’的含义。',
-        '将以下英文句子翻译成中文：\n‘The weather today is sunny and pleasant.’',
-        '为《射雕英雄传》中的郭靖设计一个新的冒险情节。',
-        '给出以下逻辑题的详细推理过程：\n‘如果今天是周五，那么三天后是周几？’'
+        '文本：联合国秘书长安东尼奥·古特雷斯在周一的一次演讲中强调了全球合作的重要性，并呼吁各国政府加强对气候变化的关注。要求：识别文本中提到的实体。',
+        '文本：苹果公司在本周发布了其最新款智能手机iPhone 15，这款设备将在美国、欧洲和亚洲市场同步上市。要求：提取文本中的组织名称和地点。',
+        '文本：《三体》这本书由刘慈欣创作，讲述了一个关于人类与外星文明接触的故事。要求：提取文本中的人名和书名。',
+        '文本：北京冬奥会于2022年在中国北京举办，这一盛事吸引了来自全球200多个国家的运动员参加。要求：识别文本中的地点、事件名称以及数量相关信息。',
+        '文本：SpaceX的猎鹰9号火箭在美国佛罗里达州成功发射，运载了一颗由NASA研发的气象卫星。要求：提取文本中的组织名称、地点和发射设备名称。',
+        '文本：阿里巴巴创始人马云在一次公开演讲中表示，未来五年内电子商务行业将迎来快速增长。要求：提取文本中的人名、组织名称和时间。',
+        '文本：新冠病毒疫苗由辉瑞公司和BioNTech联合研发，于2020年底获得美国食品药品监督管理局（FDA）的紧急使用授权。要求：识别文本中的组织名称、时间和事件名称。',
+        '文本：乔布斯（Steve Jobs）在2007年推出了第一代iPhone，彻底改变了移动设备的行业格局。要求：提取文本中的人名、年份和产品名称。',
+        '文本：中国长江三峡水电站是目前世界上最大的水电站，位于中国湖北省，是中国水利工程的杰出代表。要求：识别文本中的地点名称和工程名称。',
+        '文本：2023年，特斯拉（Tesla）的市值突破一万亿美元，成为全球最有价值的汽车制造商之一。要求：提取文本中的年份、组织名称和数值相关信息。'
     ]
     return prompt_datas
 
@@ -71,7 +69,7 @@ if __name__ == '__main__':
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     # model_file = "./results_sft/checkpoint-34362"
-    model_file = "../sft/results_sft/gmq_sft"
+    model_file = "../sft/results_sft/gmq_sft_scene_NER"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
@@ -81,13 +79,13 @@ if __name__ == '__main__':
     eval_prompts = get_prompts()
 
     with torch.no_grad():
-        prompt = eval_prompts[0]
+        prompt = eval_prompts[3]
         sampling_prompt = generate_template(pre_sys + task_descriptions['NER'], prompt)
         # sampling_prompt = generate_template(default_system, prompt)
         input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
 
         # 采样次数
-        sampling_num = 10
+        sampling_num = 20
         sampling_len_list = []
         sampling_appear_list = []
         for i in range(sampling_num):
@@ -95,7 +93,7 @@ if __name__ == '__main__':
                 input_ids=input_ids['input_ids'],
                 max_length=200,
                 temperature=0.7,
-                top_k=10,
+                top_k=50,
                 top_p=0.95,
                 attention_mask=input_ids['attention_mask'],
                 pad_token_id=tokenizer.pad_token_id,
