@@ -100,7 +100,7 @@ if __name__ == '__main__':
                         do_sample=True,
                     )
                     decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
-                    f.write(f"A[{i+1}]: {decoded_text}\n")
+                    f.write(f"A[{i+1}]: {decoded_text[len(input_ids['input_ids']):]}\n")
                 f.write(f"==================={idx} done ==================\n")
                 f.close()
             print(f"the {idx + 1} / {len(eval_prompts)} is done ..")
