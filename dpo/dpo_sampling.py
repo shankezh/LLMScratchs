@@ -79,31 +79,58 @@ if __name__ == '__main__':
     eval_prompts = get_prompts()
 
     with torch.no_grad():
-        prompt = eval_prompts[3]
-        sampling_prompt = generate_template(pre_sys + task_descriptions['NER'], prompt)
-        # sampling_prompt = generate_template(default_system, prompt)
-        input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
+        for idx, prompt in enumerate(eval_prompts):
+            sampling_prompt = generate_template(pre_sys + task_descriptions['NER'], prompt)
+            input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
+            # 采样次数
+            sampling_num = 10
+            with open("sampling_verify.txt", "a") as f:
+                f.write(f"==================={idx} start ==================\n")
+                f.write(f"Q: {prompt}\n")
+                for i in range(sampling_num):
+                    output = model.generate(
+                        input_ids=input_ids['input_ids'],
+                        max_length=200,
+                        temperature=0.7,
+                        top_k=50,
+                        top_p=0.95,
+                        attention_mask=input_ids['attention_mask'],
+                        pad_token_id=tokenizer.pad_token_id,
+                        eos_token_id=tokenizer.eos_token_id,
+                        do_sample=True,
+                    )
+                    decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
+                    f.write(f"A[{i+1}]: {decoded_text}\n")
+                f.write(f"==================={idx} done ==================\n")
+                f.close()
+            print(f"the {idx + 1} / {len(eval_prompts)} is done ..")
 
-        # 采样次数
-        sampling_num = 20
-        sampling_len_list = []
-        sampling_appear_list = []
-        for i in range(sampling_num):
-            output = model.generate(
-                input_ids=input_ids['input_ids'],
-                max_length=200,
-                temperature=0.7,
-                top_k=50,
-                top_p=0.95,
-                attention_mask=input_ids['attention_mask'],
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-                do_sample=True,
-            )
-            decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
-            sampling_len_list.append(len(decoded_text))
-            print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
-            print(decoded_text)
-            # if len(decoded_text) == 221:
-                # print(decoded_text)
-        print(sampling_len_list)
+
+        # prompt = eval_prompts[3]
+        # sampling_prompt = generate_template(pre_sys + task_descriptions['NER'], prompt)
+        # # sampling_prompt = generate_template(default_system, prompt)
+        # input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
+        #
+        # # 采样次数
+        # sampling_num = 20
+        # sampling_len_list = []
+        # sampling_appear_list = []
+        # for i in range(sampling_num):
+        #     output = model.generate(
+        #         input_ids=input_ids['input_ids'],
+        #         max_length=200,
+        #         temperature=0.7,
+        #         top_k=50,
+        #         top_p=0.95,
+        #         attention_mask=input_ids['attention_mask'],
+        #         pad_token_id=tokenizer.pad_token_id,
+        #         eos_token_id=tokenizer.eos_token_id,
+        #         do_sample=True,
+        #     )
+        #     decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
+        #     sampling_len_list.append(len(decoded_text))
+        #     print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
+        #     print(decoded_text)
+        #     # if len(decoded_text) == 221:
+        #         # print(decoded_text)
+        # print(sampling_len_list)
