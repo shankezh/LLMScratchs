@@ -5,11 +5,36 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from model.hf_gpt_model import GMQModel,GMQConfig
 from utilities import check_network_params
 
+pre_sys = "你叫良智，是一名多功能的 AI 助手，当前的任务类型是："
+
+task_descriptions = {
+    "NLI": "自然语言推理。",
+    "TextMatching": "文本匹配。",
+    "StoryGeneration": "故事生成。",
+    "ProductDesc": "商品文案生成。",
+    "Summary": "文本摘要。",
+    "AncientPoem": "古诗生成。",
+    "NER": "实体识别。",
+    "SentimentAnalyze": "情感分析。",
+    "TextCorrection": "文本纠错。",
+    "Couplet": "对对联。",
+    "MusicComment": "生成音乐热评。",
+    "KeywordRecognition": "关键词识别。",
+    "ClassicalChinese": "翻译成文言文。",
+    "Cot": "思维链思考。",
+    "LyricGeneration": "歌词生成。",
+    "Translation": "中英翻译。",
+    "OpenQA": "开放问答。",
+    "Composition": "作文生成。",
+    "MRC": "阅读理解。",
+    "JinYongGeneration": "金庸风格小说生成。",
+    "Dictionary": "成语释义。",
+}
 
 def get_prompts():
     prompt_datas = [
-        '什么是量子力学的基本原理？',
-        '地球上有哪些重要的生态系统？',
+        '实体识别： 同时，香港人也决心保证充分实施基本法。 抽取出文中所有的实体',
+        '鹄峙鸾翔 这个成语的意思是什么？',
         '写一个关于‘健康饮食’的短促销文案。',
         '以下两段话是否表达相同的意思？\n1. 我喜欢阅读。\n2. 阅读让我感到快乐。',
         '以一个迷失的探险家为主角，写一个惊险的短篇故事。',
@@ -57,20 +82,21 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         prompt = eval_prompts[0]
-        sampling_prompt = generate_template(default_system, prompt)
+        sampling_prompt = generate_template(pre_sys + task_descriptions['NER'], prompt)
+        # sampling_prompt = generate_template(default_system, prompt)
         input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
 
         # 采样次数
-        sampling_num = 100
+        sampling_num = 10
         sampling_len_list = []
         sampling_appear_list = []
         for i in range(sampling_num):
             output = model.generate(
                 input_ids=input_ids['input_ids'],
-                max_length=512,
-                temperature=1.0,
+                max_length=200,
+                temperature=0.7,
                 top_k=10,
-                top_p=0.8,
+                top_p=0.95,
                 attention_mask=input_ids['attention_mask'],
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
@@ -78,8 +104,8 @@ if __name__ == '__main__':
             )
             decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
             sampling_len_list.append(len(decoded_text))
-            # print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
-            # print(decoded_text)
-            if len(decoded_text) == 221:
-                print(decoded_text)
+            print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
+            print(decoded_text)
+            # if len(decoded_text) == 221:
+                # print(decoded_text)
         print(sampling_len_list)
