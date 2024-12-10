@@ -87,27 +87,16 @@ if __name__ == '__main__':
         input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
 
         # 采样次数
-<<<<<<< HEAD
-        sampling_num = 100
-=======
         sampling_num = 10
->>>>>>> 8c290608e1091e17b67c68563300da8f9136b426
         sampling_len_list = []
         sampling_appear_list = []
         for i in range(sampling_num):
             output = model.generate(
                 input_ids=input_ids['input_ids'],
-<<<<<<< HEAD
-                max_length=512,
-                temperature=1.0,
-                top_k=10,
-                top_p=0.8,
-=======
                 max_length=200,
                 temperature=0.7,
                 top_k=10,
                 top_p=0.95,
->>>>>>> 8c290608e1091e17b67c68563300da8f9136b426
                 attention_mask=input_ids['attention_mask'],
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
@@ -115,15 +104,8 @@ if __name__ == '__main__':
             )
             decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
             sampling_len_list.append(len(decoded_text))
-<<<<<<< HEAD
-            # print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
-            # print(decoded_text)
-            if len(decoded_text) == 221:
-                print(decoded_text)
-=======
             print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
             print(decoded_text)
             # if len(decoded_text) == 221:
                 # print(decoded_text)
->>>>>>> 8c290608e1091e17b67c68563300da8f9136b426
         print(sampling_len_list)
