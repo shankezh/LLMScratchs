@@ -26,6 +26,25 @@ class SFTItem:
             "tools": []
         }
 
+def build_specific_data(name, path):
+    count = 0
+    with open("sft_data_{name}.json", "a+") as fj:
+        fj.write("[\n")
+        with open(path, "r") as f:
+            for line in f:
+                data = json.loads(line)
+                system = data["kind"]
+                user = data["input"]
+                assistant = data["target"]
+                if system == "NER":
+                    count += 1
+                    print(f"{count} ..")
+                    sft_item = SFTItem(conversations=[Message("human",user),Message("gpt",assistant)], system=system, tools=[]).to_dict()
+                    fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                    fj.write(",\n")
+        fj.write("]")
+        print("done..")
+
 def build_data(path):
     count = 0
     with open("sft_data_general.json", "a+") as fj:

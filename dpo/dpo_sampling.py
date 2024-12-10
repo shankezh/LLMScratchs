@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     # model_file = "./results_sft/checkpoint-34362"
-    model_file = "./results_sft/gmq_sft"
+    model_file = "../sft/results_sft/gmq_sft"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)
@@ -61,19 +61,25 @@ if __name__ == '__main__':
         input_ids = tokenizer(sampling_prompt, return_tensors="pt", return_attention_mask=True).to(device)
 
         # 采样次数
-        sampling_num = 10
+        sampling_num = 100
+        sampling_len_list = []
+        sampling_appear_list = []
         for i in range(sampling_num):
             output = model.generate(
                 input_ids=input_ids['input_ids'],
                 max_length=512,
                 temperature=1.0,
-                top_k=50,
-                top_p=0.95,
+                top_k=10,
+                top_p=0.8,
                 attention_mask=input_ids['attention_mask'],
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 do_sample=True,
             )
             decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
-            print(f"-------------count: {i+1}-----------")
-            print(decoded_text)
+            sampling_len_list.append(len(decoded_text))
+            # print(f"-------------count: {i+1}： {len(decoded_text)}-----------")
+            # print(decoded_text)
+            if len(decoded_text) == 221:
+                print(decoded_text)
+        print(sampling_len_list)
