@@ -99,8 +99,8 @@ if __name__ == '__main__':
                         eos_token_id=tokenizer.eos_token_id,
                         do_sample=True,
                     )
-                    decoded_text = tokenizer.decode(output[0][len(input_ids['input_ids']):], skip_special_tokens=True)
-                    f.write(f"A[{i+1}]: {decoded_text}\n")
+                    decoded_text = tokenizer.decode(output[0], skip_special_tokens=True)
+                    f.write(f"A[{i+1}]: {decoded_text[len(sampling_prompt):]}\n")
                 f.write(f"==================={idx} done ==================\n")
                 f.close()
             print(f"the {idx + 1} / {len(eval_prompts)} is done ..")
