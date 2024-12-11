@@ -33,7 +33,7 @@
 <|im_start|>user
 {user_prompt}<|im_end|>
 <|im_start|>assistant
-{assistant_prompt}<|im_end|>
+{assistant_prompt}<|im_end|><|endoftext|>
 ```
 
 # Experiments
