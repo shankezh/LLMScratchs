@@ -93,6 +93,8 @@ def init_model_and_tokenizer(device, model_path = None):
             dtype=torch.float32
         )
         model = LMQModel(config=model_config).to(device)
+
+    torch.compile(model)
     return model, tokenizer
 
 
@@ -109,13 +111,24 @@ if __name__ == '__main__':
         batch_size = 4,
         collate_fn = data_collator 
     )
-
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     epoch_num = 1
+    max_steps = 5364883
+    for epoch in range(epoch_num):
+        model.train()
+        for step, batch in enumerate(train_dataloader):
+            # print(
+            #     batch['input_ids'].to(device).shape,
+            #     batch['attention_mask'].to(device).shape
+            # )
+            optimizer.zero_grad()
+            loss, logits = model(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                labels=batch["input_ids"]
+            )
+            loss.backward()
+            optimizer.step()
+            print(f"Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
-    for step, batch in enumerate(train_dataloader):
-        print(
-            batch['input_ids'].to(device).shape,
-            batch['attention_mask'].to(device).shape
-        )
-        if step == 10:
-            break
+    model.save_pretrained("./results/lmq_pretrained")
