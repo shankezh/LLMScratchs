@@ -106,17 +106,24 @@ if __name__ == '__main__':
     data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+
+    batch_size = 6
+    
     train_dataloader = DataLoader(
         tokenized_train_dataset,
-        batch_size = 4,
+        batch_size = batch_size,
         collate_fn = data_collator 
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     epoch_num = 1
-    max_steps = 5364883
+    max_steps = 5364883 // batch_size
     for epoch in range(epoch_num):
         model.train()
         for step, batch in enumerate(train_dataloader):
+            if step >= max_steps:
+                continue
+            # 将batch中的张量移动到GPU上
+            batch = {k: v.to(device) for k, v in batch.items()}
             # print(
             #     batch['input_ids'].to(device).shape,
             #     batch['attention_mask'].to(device).shape
