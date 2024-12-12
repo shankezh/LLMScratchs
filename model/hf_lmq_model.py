@@ -3,9 +3,9 @@ from transformers import PreTrainedModel, PretrainedConfig, AutoTokenizer,Genera
 import torch.nn as nn
 import torch
 from transformers.modeling_outputs import CausalLMOutput
-from llama3_2_model import TransformerBlock, RMSNorm
+from model.llama3_2_model import TransformerBlock, RMSNorm
 
-from LLM.LLMScratchs.utilities import check_network_params
+# from LLM.LLMScratchs.utilities import check_network_params
 
 class LMQConfig(PretrainedConfig):
     model_type = 'llama3_2_mix_qwen2_5'
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     )
 
     model = LMQModel(model_cfg).to(device)
-    check_network_params(model)
+    # check_network_params(model)
     model.eval()
 
     start_context = "你好，请说你好！"

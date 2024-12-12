@@ -1,8 +1,11 @@
 import torch, json
 from torch.utils.data import DataLoader, Dataset
-from transformers import AutoTokenizer, AutoModel, AutoConfig
+from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
-from ..model.hf_lmq_model import LMQModel,LMQConfig
+import sys,os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+from model.hf_lmq_model import LMQModel,LMQConfig
 
 
 def tokenize_function(examples, tokenizer ):
@@ -24,7 +27,7 @@ def tokenize_function(examples, tokenizer ):
         texts_with_end_token,
         truncation=True,
         max_length=max_length,
-        padding="max_length",
+        padding=False,
         return_special_tokens_mask=False,
         return_attention_mask=True)
 
@@ -98,13 +101,13 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = None
     model, tokenizer = init_model_and_tokenizer(device, model_path)
-    data_path = ""
+    data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path)
-
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
     train_dataloader = DataLoader(
         tokenized_train_dataset,
         batch_size = 4,
-        collate_fn = collate_fn
+        collate_fn = data_collator 
     )
 
     epoch_num = 1
@@ -114,3 +117,5 @@ if __name__ == '__main__':
             batch['input_ids'].to(device).shape,
             batch['attention_mask'].to(device).shape
         )
+        if step == 10:
+            break
