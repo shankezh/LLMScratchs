@@ -74,6 +74,41 @@ def get_tokens_from_data(tokenizer, chosen_list, rejected_list):
 
     return tokenized_chosen_data, tokenized_rejected_data
 
+import torch.nn.functional as F
+def get_logprobs(logits, labels, attention_mask=None):
+    labels = labels[:, 1:].clone()
+    logits = logits[:,:-1,:]
+
+    log_probs = F.log_softmax(logits, dim=-1)
+    selected_log_probs = torch.gather(
+        input=log_probs,
+        dim=-1,
+        index=labels.unsqueeze(-1)
+    ).squeeze(-1)
+
+    if attention_mask is not None:
+        mask = attention_mask[:, 1:].clone()
+        selected_log_probs = selected_log_probs * mask
+        avg_log_prob = selected_log_probs.sum(-1) / mask.sum(-1)
+
+        return avg_log_prob
+    else:
+        return selected_log_probs.mean(-1)
+
+
+
+def get_dpo_loss(po_chosen_logprobs, po_rejected_logprobs, ref_chosen_logprobs, ref_rejected_logprobs, beta = 0.1):
+    po_logratios = po_chosen_logprobs - po_rejected_logprobs
+    ref_logratios = ref_chosen_logprobs - ref_rejected_logprobs
+
+    logits = po_logratios - ref_logratios
+
+    loss = -F.logsigmoid(beta * logits)
+
+    chosen_rewards = (po_chosen_logprobs - ref_chosen_logprobs).detach()
+    rejected_rewards = (po_rejected_logprobs - ref_rejected_logprobs).detach()
+
+    return loss, chosen_rewards.mean(), rejected_rewards.mean()
 
 def get_models_and_tokenizer(device):
 
@@ -98,7 +133,50 @@ if __name__ == '__main__':
     po_model, ref_model, tokenizer = get_models_and_tokenizer(device)
 
 
-    chosen_data, rejected_data = get_data_from_json("../data/dpo_data.json")
+    chosen_list, rejected_list = get_data_from_json("../data/dpo_data.json")
+    # model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+    # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
+    # tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenized_chosen_data, tokenized_rejected_data = get_tokens_from_data(tokenizer, chosen_list, rejected_list)
 
-    optimizer = AdamW(po_model.parameters(), lr=)
+    optimizer = AdamW(po_model.parameters(), lr=1e-5)
+
+    # ref_model.train()
+    epoch_num = 1
+    stride = 2
+    for epoch in range(epoch_num):
+        po_model.train()
+        optimizer.zero_grad()
+        for idx in range(0, tokenized_chosen_data.get('input_ids').__len__() , stride):
+            print(
+                tokenized_chosen_data['input_ids'][idx:idx+stride].shape,
+                tokenized_rejected_data['input_ids'][idx:idx+stride].shape,
+            )
+            po_chosen_log_probs = get_logprobs(
+                logits = po_model(tokenized_chosen_data['input_ids'][idx:idx+stride]),
+                labels = tokenized_chosen_data['input_ids'][idx:idx+stride],
+                attention_mask = tokenized_chosen_data['attention_mask'][idx:idx+stride]
+            )
+            po_rejected_logprobs = get_logprobs(
+                logits = po_model(tokenized_rejected_data['input_ids'][idx:idx+stride]),
+                labels = tokenized_rejected_data['input_ids'][idx:idx+stride],
+                attention_mask = tokenized_rejected_data['attention_mask'][idx:idx+stride]
+            )
+            ref_chosen_logprobs = get_logprobs(
+                logits = ref_model(tokenized_chosen_data['input_ids'][idx:idx+stride]),
+                labels = tokenized_chosen_data['input_ids'][idx:idx+stride],
+                attention_mask = tokenized_chosen_data['attention_mask'][idx:idx+stride]
+            )
+            ref_rejected_logprobs = get_logprobs(
+                logits = ref_model(tokenized_rejected_data['input_ids'][idx:idx+stride]),
+                labels = tokenized_rejected_data['input_ids'][idx:idx+stride],
+                attention_mask = tokenized_rejected_data['attention_mask'][idx:idx+stride]
+            )
+
+            loss, chosen_rewards, rejected_rewards = get_dpo_loss(po_chosen_log_probs, po_rejected_logprobs,ref_chosen_logprobs, ref_rejected_logprobs, beta = 0.1)
+            print(f"epoch: {epoch} - step: {idx} / {tokenized_chosen_data.get('input_ids').__len__() },  loss : {loss}")
+            loss.backward()
+            optimizer.step()
+    po_model.save_pretrained("./results/gmq_dpo")
+
 
