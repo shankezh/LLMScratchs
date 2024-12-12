@@ -158,7 +158,8 @@ if __name__ == '__main__':
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     # model_file = "./results_sft/checkpoint-34362"
-    model_file = "../sft/results_sft/gmq_sft_scene_NER"
+    # model_file = "../sft/results_sft/gmq_sft_scene_NER"
+    model_file = "./results/gmq_dpo"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_file)

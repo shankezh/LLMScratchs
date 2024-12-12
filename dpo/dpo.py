@@ -2,6 +2,7 @@ import torch, time
 from torch.optim import AdamW
 from transformers import AutoTokenizer, AutoModel, AutoConfig, Trainer, TrainingArguments, DataCollatorForLanguageModeling
 from datasets import load_dataset
+from torch.utils.data import DataLoader, TensorDataset
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -60,7 +61,8 @@ def get_tokens_from_data(tokenizer, chosen_list, rejected_list):
         max_length=max_length_chosen,
         padding='max_length',
         return_attention_mask=True,
-        return_special_tokens_mask=False
+        return_special_tokens_mask=False,
+        return_tensors = 'pt'
     )
 
     tokenized_rejected_data = tokenizer(
@@ -69,7 +71,8 @@ def get_tokens_from_data(tokenizer, chosen_list, rejected_list):
         max_length=max_length_rejected,
         padding='max_length',
         return_attention_mask=True,
-        return_special_tokens_mask=False
+        return_special_tokens_mask=False,
+        return_tensors = 'pt'
     )
 
     return tokenized_chosen_data, tokenized_rejected_data
@@ -108,7 +111,7 @@ def get_dpo_loss(po_chosen_logprobs, po_rejected_logprobs, ref_chosen_logprobs, 
     chosen_rewards = (po_chosen_logprobs - ref_chosen_logprobs).detach()
     rejected_rewards = (po_rejected_logprobs - ref_rejected_logprobs).detach()
 
-    return loss, chosen_rewards.mean(), rejected_rewards.mean()
+    return loss.mean(), chosen_rewards.mean(), rejected_rewards.mean()
 
 def get_models_and_tokenizer(device):
 
@@ -139,42 +142,54 @@ if __name__ == '__main__':
     # tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenized_chosen_data, tokenized_rejected_data = get_tokens_from_data(tokenizer, chosen_list, rejected_list)
 
+    train_dataset = TensorDataset(
+        tokenized_chosen_data['input_ids'].to(device), 
+        tokenized_chosen_data['attention_mask'].to(device),
+        tokenized_rejected_data['input_ids'].to(device),
+        tokenized_rejected_data['attention_mask'].to(device)
+    )
+
+    dataloader = DataLoader(train_dataset, batch_size = 2, shuffle = True)
+    
+
     optimizer = AdamW(po_model.parameters(), lr=1e-5)
 
     # ref_model.train()
-    epoch_num = 1
-    stride = 2
+    epoch_num = 2
+    max_steps_per_epoch = 5
     for epoch in range(epoch_num):
         po_model.train()
-        optimizer.zero_grad()
-        for idx in range(0, tokenized_chosen_data.get('input_ids').__len__() , stride):
-            print(
-                tokenized_chosen_data['input_ids'][idx:idx+stride].shape,
-                tokenized_rejected_data['input_ids'][idx:idx+stride].shape,
-            )
+        
+        for idx, batch in enumerate(dataloader):
+            optimizer.zero_grad()
+            chosen_input_ids, chosen_attention_mask, rejected_input_ids, rejected_attention_mask = (tensor.to(device) for tensor in batch)
+            # print(
+            #     tokenized_chosen_data['input_ids'][idx:idx+stride].shape,
+            #     tokenized_rejected_data['input_ids'][idx:idx+stride].shape,
+            # )
             po_chosen_log_probs = get_logprobs(
-                logits = po_model(tokenized_chosen_data['input_ids'][idx:idx+stride]),
-                labels = tokenized_chosen_data['input_ids'][idx:idx+stride],
-                attention_mask = tokenized_chosen_data['attention_mask'][idx:idx+stride]
+                logits = po_model(chosen_input_ids),
+                labels = chosen_input_ids,
+                attention_mask = chosen_attention_mask
             )
             po_rejected_logprobs = get_logprobs(
-                logits = po_model(tokenized_rejected_data['input_ids'][idx:idx+stride]),
-                labels = tokenized_rejected_data['input_ids'][idx:idx+stride],
-                attention_mask = tokenized_rejected_data['attention_mask'][idx:idx+stride]
+                logits = po_model(rejected_input_ids),
+                labels = rejected_input_ids,
+                attention_mask = rejected_attention_mask
             )
             ref_chosen_logprobs = get_logprobs(
-                logits = ref_model(tokenized_chosen_data['input_ids'][idx:idx+stride]),
-                labels = tokenized_chosen_data['input_ids'][idx:idx+stride],
-                attention_mask = tokenized_chosen_data['attention_mask'][idx:idx+stride]
+                logits = ref_model(chosen_input_ids),
+                labels = chosen_input_ids,
+                attention_mask = chosen_attention_mask
             )
             ref_rejected_logprobs = get_logprobs(
-                logits = ref_model(tokenized_rejected_data['input_ids'][idx:idx+stride]),
-                labels = tokenized_rejected_data['input_ids'][idx:idx+stride],
-                attention_mask = tokenized_rejected_data['attention_mask'][idx:idx+stride]
+                logits = ref_model(rejected_input_ids),
+                labels = rejected_input_ids,
+                attention_mask = rejected_attention_mask
             )
 
             loss, chosen_rewards, rejected_rewards = get_dpo_loss(po_chosen_log_probs, po_rejected_logprobs,ref_chosen_logprobs, ref_rejected_logprobs, beta = 0.1)
-            print(f"epoch: {epoch} - step: {idx} / {tokenized_chosen_data.get('input_ids').__len__() },  loss : {loss}")
+            print(f"epoch: {epoch+1} - step: {idx+1} / {max_steps_per_epoch},  loss : {loss}")
             loss.backward()
             optimizer.step()
     po_model.save_pretrained("./results/gmq_dpo")
