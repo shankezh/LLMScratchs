@@ -127,6 +127,9 @@ def get_models_and_tokenizer(device):
     tr_model.to(device)
     ref_model = GMQModel.from_pretrained(model_file)
     ref_model.to(device)
+    # 使用 torch.compile 加速模型
+    tr_model = torch.compile(tr_model)
+    ref_model = torch.compile(ref_model)
     return tr_model, ref_model, tokenizer
 
 if __name__ == '__main__':
