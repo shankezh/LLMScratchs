@@ -2,11 +2,9 @@ import torch, json
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
+import deepspeed
 import argparse
 import sys,os
-
-from LLM.business.dpo.ttt import train_data
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_lmq_model import LMQModel,LMQConfig
@@ -43,7 +41,7 @@ def tokenize_function(examples, tokenizer ):
     return tokens_data
 
 
-def prepare_data(data_path):
+def prepare_data(data_path, tokenizer):
     train_dataset = load_dataset("json", keep_in_memory=True, data_files=data_path, split="train",
                                  streaming=True)
     # 使用批处理进行标记化，填充
@@ -115,37 +113,23 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = None
     model, tokenizer = init_model_and_tokenizer(model_path)
-    data_path = ""
-    tokenized_train_dataset = prepare_data(data_path)
-    # data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    data_path = "../data/pretrain_train.json"
+    tokenized_train_dataset = prepare_data(data_path, tokenizer)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
     batch_size = 6
     #
-    # train_dataloader = DataLoader(tokenized_train_dataset, batch_size=batch_size, collate_fn=data_collator)
+    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=batch_size, collate_fn=data_collator)
     # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     # epoch_num = 1
     # max_steps = 5364883 // batch_size
     # for epoch in range(epoch_num):
     #     for step, batch in enumerate(train_dataloader):
-    cmd_args = {
-        "train_batch_size": 6,
-        "gradient_accumulation_steps": 1,
-        "optimizer": {
-            "type": "Adam",
-            "params": {
-                "lr": 1e-4,
-            }
-        },
-        "fp16":{
-            "enabled": True
-        },
-        "zero_optimization": True
-    }
 
-    model_engine, optimizer, train_dataloader, _ = deepspeed.initialize(
-        args = cmd_args,
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    model_engine, optimizer, _, _ = deepspeed.initialize(
         model=model,
         model_parameters=model.parameters(),
-        train_data = tokenized_train_dataset,
+        optimizer=optimizer,
         config = "ds_config.json"
     )
 
