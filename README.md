@@ -8,6 +8,7 @@ SFT guide:[SFT Link](sft) <br>
 DPO guide:[DPO Link](dpo) <br>
 
 
-# Refs
-ps：如果你对大模型底层技术感兴趣，并且十分想自己实现一次，我一定要推荐你去看这个仓库，从底层原理到代码实现全部包含：
-[LLMs-from-scratch](https://github.com/rasbt/LLMs-from-scratch)
+# Refs & Recommandations
+ps：如果你对大模型底层技术感兴趣，并且十分想自己实现一次，我一定要推荐你去看这个仓库，从底层原理到代码实现全部包含：<br>
+[LLMs-from-scratch](https://github.com/rasbt/LLMs-from-scratch)<br>
+[1] [LLM训练实战经验](https://techdiylife.github.io/big-model-training/deepspeed/LLM-state-of-GPT.html#%E9%97%AE%E9%A2%981gpt%E6%A8%A1%E5%9E%8B%E6%98%AF%E5%A6%82%E4%BD%95%E8%AE%AD%E7%BB%83%E7%9A%84) <br>
