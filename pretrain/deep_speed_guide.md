@@ -103,7 +103,7 @@ Optimizer优化器可以直接使用torch的API在声明对象后传入deepspeed
     )
 ```
 Schedule调度器配置可以按照DeepSpeed的支持文档进行选择和填写 [DeepSpeed Scheduler](https://deepspeed.readthedocs.io/en/latest/schedulers.html)<br>
-FP16 training options 和 AMP 二选1即可<br>
+FP16 training options 和 AMP 二选1即可, amp和ZeRO不能同时使用<br>
 AMP优化级别 （[Nvidia API Link](https://nvidia.github.io/apex/amp.html#apex.amp.initialize)）:<br>
 
 | opt_level         |意义|场景|优缺点|

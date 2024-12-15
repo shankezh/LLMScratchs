@@ -62,7 +62,7 @@ def collate_fn(batch):
     }
 
 
-def init_model_and_tokenizer(device, model_path = None):
+def init_model_and_tokenizer(model_path = None):
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -73,7 +73,6 @@ def init_model_and_tokenizer(device, model_path = None):
         # 注册自定义模型类
         AutoModel.register(LMQConfig, LMQModel)
         model = AutoModel.from_pretrained(model_path)
-        model.to(device)
     else:
         model_config = LMQConfig(
             vocab_size=151665,
@@ -92,7 +91,7 @@ def init_model_and_tokenizer(device, model_path = None):
             },
             dtype=torch.float32
         )
-        model = LMQModel(config=model_config).to(device)
+        model = LMQModel(config=model_config)
 
     torch.compile(model)
     return model, tokenizer
@@ -104,16 +103,16 @@ if __name__ == '__main__':
     # 设置DeepSpeed的分布式环境
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     torch.cuda.set_device(local_rank)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # deepspeed会自动分配设备
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = None
     model, tokenizer = init_model_and_tokenizer(model_path)
     data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path, tokenizer)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
-    batch_size = 64
+    train_micro_batch_size_per_gpu = 12
     #
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=batch_size, collate_fn=data_collator)
+    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     model_engine, optimizer, _, _ = deepspeed.initialize(
         model=model,
@@ -129,14 +128,14 @@ if __name__ == '__main__':
     # GPU数量
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
-    train_micro_batch_size_per_gpu = 8
-    gradient_accumulation_steps = 4
+    gradient_accumulation_steps = 3
 
     # 计算每步的 token 数量
     effective_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * gpu_num_devices
 
     # 计算最大步数
     max_steps = total_data_size // effective_batch_size
+    print(f"Max stpes is {max_steps} ... ")
     # max_steps = (total_data_size // tokens_per_step) * num_epochs
 
     for epoch in range(epoch_num):
@@ -156,7 +155,7 @@ if __name__ == '__main__':
             model_engine.backward(loss)
             model_engine.step()
 
-            print(f"Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
+            # print(f"Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
     # 使用DeepSpeed保存模型
     # DeepSpeed支持使用 model_engine.save_checkpoint 来保存权重

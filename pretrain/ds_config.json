@@ -1,7 +1,7 @@
 {
-  "train_batch_size": 64,
-  "train_micro_batch_size_per_gpu": 8,
-  "gradient_accumulation_steps": 4,
+  "train_batch_size": 72,
+  "train_micro_batch_size_per_gpu": 12,
+  "gradient_accumulation_steps": 3,
   "optimizer": {
     "type": "AdamW",
     "params": {
@@ -24,9 +24,8 @@
       "warmup_type": "linear"
     }
   },
-  "amp": {
-    "enabled": true,
-    "opt_level": "O1"
+  "fp16": {
+    "enabled": true
   },
   "gradient_clipping": 1.0,
   "zero_optimization": {
@@ -35,8 +34,8 @@
     "overlap_comm": true
   },
   "steps_per_print": 10,
-  "wall_clock_breakdown": true,
-  "dump_state": true,
+  "wall_clock_breakdown": false,
+  "dump_state": false,
   "wandb": {
     "enabled": true,
     "team": "hogenzhu2023-university-of-sheffield",
