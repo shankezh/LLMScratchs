@@ -25,7 +25,8 @@
     }
   },
   "fp16": {
-    "enabled": true
+    "enabled": true,
+    "initial_scale_power": 12
   },
   "gradient_clipping": 1.0,
   "zero_optimization": {

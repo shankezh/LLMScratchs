@@ -41,15 +41,12 @@ DeepSpeed支持args和config两种形式的配置模式，二选1即可，这里
   "train_micro_batch_size_per_gpu": 6,
   "gradient_accumulation_steps": 1,
   "optimizer": {
-    "type": "AdamW",
+    "type": "FusedAdam",
     "params": {
-      "lr": 1e-4,
-      "betas": [
-        0.9,
-        0.999
-      ],
-      "eps": 1e-7,
-      "weight_decay": 1e-2
+        "lr": 1e-4,
+        "betas": [0.9, 0.999],
+        "eps": 1e-8,
+        "weight_decay": 1e-2
     }
   },
   "scheduler": {
