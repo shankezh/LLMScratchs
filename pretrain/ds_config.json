@@ -1,11 +1,45 @@
 {
-  "train_micro_batch_size_per_gpu": 6,
-  "gradient_accumulation_steps": 1,
-  "steps_per_print": 100,
-  "fp16": {
-    "enabled": false
+  "train_batch_size": 64,
+  "train_micro_batch_size_per_gpu": 8,
+  "gradient_accumulation_steps": 4,
+  "optimizer": {
+    "type": "AdamW",
+    "params": {
+      "lr": 1e-4,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-7,
+      "weight_decay": 1e-2
+    }
   },
+  "scheduler": {
+    "type": "WarmupCosineLR",
+    "params": {
+      "total_num_steps": 10000,
+      "warmup_min_ratio": 0.0,
+      "warmup_num_steps": 1000,
+      "cos_min_ratio": 0.0001,
+      "warmup_type": "linear"
+    }
+  },
+  "amp": {
+    "enabled": true,
+    "opt_level": "O1"
+  },
+  "gradient_clipping": 1.0,
   "zero_optimization": {
-    "stage": 0
-  }
+    "stage": 2,
+    "contiguous_gradients": true,
+    "overlap_comm": true
+  },
+  "steps_per_print": 10,
+  "wall_clock_breakdown": true,
+  "dump_state": true,
+  "wandb": {
+    "enabled": true,
+    "team": "hogenzhu2023-university-of-sheffield",
+    "project": "DS_Pre"
+}
 }
