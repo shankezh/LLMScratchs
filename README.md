@@ -8,15 +8,15 @@ Pretrain guide:[Pretrain Link](pretrain) <br>
 SFT guide:[SFT Link](sft) <br>
 DPO guide:[DPO Link](dpo) <br>
 
-目前已实现方式：
-Torch[√]
-HuggingFace[√]
-DeepSpeed[√] (一机多卡)
+目前已实现方式：<br>
+Torch[√] <br>
+HuggingFace[√]<br>
+DeepSpeed[√] (一机多卡)<br>
 
-目前包含模型：
-GPT 2
-LLAMA 2
-LLAMA 3.2
+目前包含模型：<br>
+GPT 2<br>
+LLAMA 2<br>
+LLAMA 3.2<br>
 
 # Refs & Recommandations
 ps：如果你对大模型底层技术感兴趣，并且十分想自己实现一次，我一定要推荐你去看这个仓库，从底层原理到代码实现全部包含：<br>
