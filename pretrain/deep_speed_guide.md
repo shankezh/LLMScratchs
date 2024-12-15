@@ -123,7 +123,12 @@ Logging模块<br>
 > wall_clock_breakdown: 如果设置为 true，DeepSpeed 会启用前向传播、反向传播和优化器更新 各阶段的时间测量。输出的结果可以帮助用户了解各个阶段的耗时，从而定位性能瓶颈
 > dump_state:如果设置为 true，DeepSpeed 会在初始化后打印出其内部状态信息，包括优化器、模型分布、ZeRO 设置等细节,用于检查 DeepSpeed 的初始化状态，确认所有配置（如 ZeRO stage、优化器参数、AMP 设置等）是否生效
 
-
+## 启动训练
+```shell
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 deepspeed_pretrain.py
+# --nproc_per_node=2：表示在当前节点（机器）上启动两个进程，每个进程绑定到一块GPU。
+# 手动指定 GPU，使用 CUDA_VISIBLE_DEVICES
+```
 
 # Refs
 [1] [DeepSpeed Github](https://github.com/microsoft/DeepSpeed) <br>
