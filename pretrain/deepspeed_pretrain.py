@@ -110,7 +110,21 @@ if __name__ == '__main__':
     data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path, tokenizer)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    
+    epoch_num = 1
+    total_data_size = 5364883
+    
+    gpu_num_devices = torch.cuda.device_count() # GPU数量
+    print(f"current have {gpu_num_devices} GPU devices")
+    
+    gradient_accumulation_steps = 6
     train_micro_batch_size_per_gpu = 12
+
+    # 计算每步的 token 数量
+    effective_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * gpu_num_devices
+    # 计算最大步数
+    max_steps = total_data_size // effective_batch_size
+    print(f"Max stpes is {max_steps} ... ")
     #
     train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
@@ -121,29 +135,14 @@ if __name__ == '__main__':
         config = "ds_config.json"
     )
 
+    # 获取分布式环境信息
+    rank = torch.distributed.get_rank()
 
-    epoch_num = 1
-
-    total_data_size = 5364883
-    # GPU数量
-    gpu_num_devices = torch.cuda.device_count()
-    print(f"current have {gpu_num_devices} GPU devices")
-    gradient_accumulation_steps = 3
-
-    # 计算每步的 token 数量
-    effective_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * gpu_num_devices
-
-    # 计算最大步数
-    max_steps = total_data_size // effective_batch_size
-    print(f"Max stpes is {max_steps} ... ")
     # max_steps = (total_data_size // tokens_per_step) * num_epochs
 
     for epoch in range(epoch_num):
         model_engine.train()
         for step, batch in enumerate(train_dataloader):
-            if step >= max_steps:
-                continue
-
             # DeepSpeed会自动分配设备，无需手动 to(device)
             batch = {k: v.to(model_engine.local_rank) for k, v in batch.items()}
 
@@ -155,11 +154,12 @@ if __name__ == '__main__':
             model_engine.backward(loss)
             model_engine.step()
 
-            # print(f"Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
+            print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
     # 使用DeepSpeed保存模型
     # DeepSpeed支持使用 model_engine.save_checkpoint 来保存权重
     # 或使用 model_engine.module.save_pretrained 来使用transformers的save_pretrained。
     # 这里假设模型是transformers格式，可以直接调用：
-    model_engine.save_checkpoint("./results/")
-    model_engine.module.save_pretrained("./results/lmq_pretrained")
+    if rank == 0:
+        model_engine.save_checkpoint("./results/")
+        model_engine.module.save_pretrained("./results/lmq_pretrained")
