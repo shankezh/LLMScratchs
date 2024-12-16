@@ -96,6 +96,49 @@ def init_model_and_tokenizer(model_path = None):
     torch.compile(model)
     return model, tokenizer
 
+
+def save_model(model_engine, url):
+    # 确保配置中的 dtype 是字符串格式
+    if hasattr(model_engine.module.config, "dtype"):
+        model_engine.module.config.dtype = str(model_engine.module.config.dtype)
+    model_engine.module.save_pretrained("./results/lmq_pretrained")
+
+def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints=3):
+    """
+    保存 DeepSpeed 模型检查点，并将 epoch 和 step 信息包含在文件名中，限制最大保存数量。
+    
+    参数:
+        model_engine: DeepSpeedEngine 对象，用于保存检查点。
+        save_dir (str): 检查点保存的目录。
+        epoch (int): 当前 epoch。
+        step (int): 当前 step。
+        max_checkpoints (int): 最大检查点保存数量，超过时删除旧的检查点。
+    """
+    import os
+    import shutil
+    # 将 epoch 和 step 作为检查点的标签
+    tag = f"epoch_{epoch}_step_{step}"
+    print(f"Saving checkpoint for epoch {epoch}, step {step}...")
+
+    # 调用 DeepSpeed 的 save_checkpoint 方法
+    model_engine.save_checkpoint(save_dir, tag)
+
+    print(f"Checkpoint saved at {save_dir}, tag: {tag}")
+
+    # 获取当前保存的所有检查点目录
+    checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+    
+    # 检查点按创建时间排序（旧的在前）
+    checkpoints.sort(key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
+
+    # 如果保存的检查点数量超过 max_checkpoints，则删除最早的检查点
+    while len(checkpoints) > max_checkpoints:
+        oldest_checkpoint = checkpoints.pop(0)
+        oldest_path = os.path.join(save_dir, oldest_checkpoint)
+        print(f"Removing old checkpoint: {oldest_path}")
+        shutil.rmtree(oldest_path)
+
+
 if __name__ == '__main__':
 
     torch.manual_seed(123)
@@ -110,6 +153,11 @@ if __name__ == '__main__':
     data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path, tokenizer)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+
+
+    save_dir = "./checkpoints"
+    max_checkpoints = 3  # 最多保留 3 个检查点
+    save_interval = 5000  # 每隔 100 个 step 保存一次
     
     epoch_num = 1
     total_data_size = 5364883
@@ -118,7 +166,7 @@ if __name__ == '__main__':
     print(f"current have {gpu_num_devices} GPU devices")
     
     gradient_accumulation_steps = 6
-    train_micro_batch_size_per_gpu = 12
+    train_micro_batch_size_per_gpu = 24
 
     # 计算每步的 token 数量
     effective_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * gpu_num_devices
@@ -139,12 +187,12 @@ if __name__ == '__main__':
     rank = torch.distributed.get_rank()
 
     # max_steps = (total_data_size // tokens_per_step) * num_epochs
-    print("==================================")
-    if rank == 0:
-        print("!!!!!!!!!!!!!!!!!!!11")
-        model_engine.save_checkpoint("./results/")
-        model_engine.module.save_pretrained("./results/lmq_pretrained")
-        print("##################################")
+    # print("==================================")
+    # if rank == 0:
+    #     print("!!!!!!!!!!!!!!!!!!!11")
+    #     # model_engine.save_checkpoint("./results/")
+    #     save_model(model_engine, "./results/lmq_pretrained")
+    #     print("##################################")
 
     for epoch in range(epoch_num):
         model_engine.train()
@@ -162,10 +210,15 @@ if __name__ == '__main__':
 
             print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
+            # 每隔 save_interval 步保存一次检查点
+            if step % save_interval == 0:
+                save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints)
+
+
     # 使用DeepSpeed保存模型
     # DeepSpeed支持使用 model_engine.save_checkpoint 来保存权重
     # 或使用 model_engine.module.save_pretrained 来使用transformers的save_pretrained。
     # 这里假设模型是transformers格式，可以直接调用：
     if rank == 0:
-        model_engine.save_checkpoint("./results/")
-        model_engine.module.save_pretrained("./results/lmq_pretrained")
+        # model_engine.save_checkpoint("./results/")
+        save_model(model_engine, "./results/lmq_pretrained")

@@ -1,2 +1,4 @@
 deepspeed
 transformers
+datasets
+wandb

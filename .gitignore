@@ -24,3 +24,10 @@ wandb/
 
 # 忽略所有以 result 为前缀的文件夹
 result*/
+
+# all checkpoints
+checkpoint*/
+
+#
+LMQ*/
+GMQ*/

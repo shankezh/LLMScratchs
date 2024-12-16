@@ -1,6 +1,6 @@
 {
   "train_batch_size": 144,
-  "train_micro_batch_size_per_gpu": 12,
+  "train_micro_batch_size_per_gpu": 24,
   "gradient_accumulation_steps": 6,
   "optimizer": {
     "type": "AdamW",
@@ -41,5 +41,5 @@
     "team": "hogenzhu2023-university-of-sheffield",
     "project": "DS_Pre",
     "group": "2GPUs"
-}
+    }
 }
