@@ -7,24 +7,6 @@
 页面有安装方法,pip和编译库文件方法自行选择。<br>
 推荐使用docker安装，避免环境不一致问题：
 ```shell
-docker run -it ubuntu:22.04 /bin/bash
-apt-get update
-apt-get upgrade -y
-# 安装miniforge
-# 安装缺失库
-apt-get update && apt-get install -y libaio-dev
-apt install libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6
-apt-get install wget -y
-wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-bash Miniforge3-Linux-x86_64.sh
-
-#安装完成后
-source ~/.bashrc
-#创建deepspeed环境
-conda create --name dsenv python=3.11
-# 启动环境
-conda activate dsenv
-# 安装deep_speed
 pip install deepspeed
 ```
 pycharm如何连接docker环境：
@@ -37,46 +19,49 @@ DeepSpeed支持args和config两种形式的配置模式，二选1即可，这里
 
 ```json
 {
-  "train_batch_size": 6,
-  "train_micro_batch_size_per_gpu": 6,
-  "gradient_accumulation_steps": 1,
+  "train_batch_size": 144,
+  "train_micro_batch_size_per_gpu": 24,
+  "gradient_accumulation_steps": 6,
   "optimizer": {
-    "type": "FusedAdam",
+    "type": "AdamW",
     "params": {
         "lr": 1e-4,
         "betas": [0.9, 0.999],
-        "eps": 1e-8,
+        "eps": 1e-7,
         "weight_decay": 1e-2
     }
   },
   "scheduler": {
     "type": "WarmupCosineLR",
     "params": {
-      "total_num_steps": 10000,
+      "total_num_steps": 37256,
       "warmup_min_ratio": 0.0,
       "warmup_num_steps": 1000,
       "cos_min_ratio": 0.0001,
       "warmup_type": "linear"
     }
   },
-  "amp": {
+  "fp16": {
     "enabled": true,
-    "opt_level": "O1"
+    "initial_scale_power": 12
   },
   "gradient_clipping": 1.0,
   "zero_optimization": {
     "stage": 2,
     "contiguous_gradients": true,
-    "overlap_comm": true
+    "overlap_comm": true,
+    "reduce_bucket_size": 500000000,
+    "allgather_bucket_size": 500000000
   },
   "steps_per_print": 10,
-  "wall_clock_breakdown": true,
-  "dump_state": true,
+  "wall_clock_breakdown": false,
+  "dump_state": false,
   "wandb": {
     "enabled": true,
     "team": "hogenzhu2023-university-of-sheffield",
-    "project": "DS_Pre"
-}
+    "project": "DS_Pre",
+    "group": "2GPUs"
+    }
 }
 ```
 Note: train_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * number of GPUs.<br>
@@ -129,6 +114,10 @@ CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 deepspeed_pretrain.py
 或者:
 ```shell
 CUDA_VISIBLE_DEVICES=0,1 deepspeed --num_gpus=2 deepspeed_pretrain.py
+```
+当然，你也可以只使用1个GPU进行训练
+```shell
+CUDA_VISIBLE_DEVICES=0 deepspeed --num_gpus=1 deepspeed_pretrain.py
 ```
 运行成功后，可以看到：
 ```shell

@@ -138,10 +138,34 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
         print(f"Removing old checkpoint: {oldest_path}")
         shutil.rmtree(oldest_path)
 
+def load_checkpoint(model_engine, save_dir):
+    checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+    if not checkpoints:
+        print("No checkpoints found to load.")
+        return None
+
+    latest_checkpoint = max(checkpoints, key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
+    print(f"Loading checkpoint: {latest_checkpoint}")
+    model_engine.load_checkpoint(save_dir, latest_checkpoint)
+    return latest_checkpoint
+
+def get_json_param(url):
+    with open(url, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+        return json_data["train_micro_batch_size_per_gpu"], json_data["gradient_accumulation_steps"]
+
+def set_json_param_max_step(url, max_steps):
+    with open(url, 'r', encoding='utf-8') as fr:
+        config = json.load(fr)
+    config["scheduler"]["params"]["total_num_steps"] = max_steps
+    with open(url, 'w', encoding='utf-8') as fw:
+        json.dump(config, fw, indent=2)
+        print(f"Successfully saved updated config to {url}.")
 
 if __name__ == '__main__':
 
     torch.manual_seed(123)
+    deepspeed.init_distributed()
 
     # 设置DeepSpeed的分布式环境
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
@@ -156,6 +180,7 @@ if __name__ == '__main__':
 
 
     save_dir = "./checkpoints"
+    ds_config_path = "ds_config.json"
     max_checkpoints = 3  # 最多保留 3 个检查点
     save_interval = 5000  # 每隔 100 个 step 保存一次
     
@@ -165,14 +190,14 @@ if __name__ == '__main__':
     gpu_num_devices = torch.cuda.device_count() # GPU数量
     print(f"current have {gpu_num_devices} GPU devices")
     
-    gradient_accumulation_steps = 6
-    train_micro_batch_size_per_gpu = 24
+    train_micro_batch_size_per_gpu, gradient_accumulation_steps = get_json_param(ds_config_path)
 
-    # 计算每步的 token 数量
-    effective_batch_size = train_micro_batch_size_per_gpu * gradient_accumulation_steps * gpu_num_devices
+    effective_batch_size = train_micro_batch_size_per_gpu  * gpu_num_devices
     # 计算最大步数
     max_steps = total_data_size // effective_batch_size
     print(f"Max stpes is {max_steps} ... ")
+
+    set_json_param_max_step(ds_config_path, max_steps)
     #
     train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
@@ -180,19 +205,17 @@ if __name__ == '__main__':
         model=model,
         model_parameters=model.parameters(),
         # optimizer=optimizer,
-        config = "ds_config.json"
+        config = ds_config_path
     )
 
     # 获取分布式环境信息
     rank = torch.distributed.get_rank()
+    last_checkpoint = load_checkpoint(model_engine, save_dir)
 
-    # max_steps = (total_data_size // tokens_per_step) * num_epochs
-    # print("==================================")
-    # if rank == 0:
-    #     print("!!!!!!!!!!!!!!!!!!!11")
-    #     # model_engine.save_checkpoint("./results/")
-    #     save_model(model_engine, "./results/lmq_pretrained")
-    #     print("##################################")
+    if last_checkpoint:
+        epoch, step = map(int, last_checkpoint.split('_')[1:][::2])
+    else:
+        epoch, step = 0, 0
 
     for epoch in range(epoch_num):
         model_engine.train()
@@ -206,7 +229,9 @@ if __name__ == '__main__':
                                    labels=batch["input_ids"])
             # 反向传播与优化
             model_engine.backward(loss)
-            model_engine.step()
+
+            if (step + 1) % gradient_accumulation_steps == 0:
+                model_engine.step()
 
             print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 

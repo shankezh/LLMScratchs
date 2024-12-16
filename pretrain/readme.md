@@ -39,5 +39,11 @@ python torch_pretrain.py
 
 ## 训练过程
 这里使用了wandb进行展示.[Wandb Link](https://wandb.ai)
+![img.png](imgs/pretrain_img.png)
+可以看到两个批次效果如图.
 
-## 
+## 接龙效果
+
+
+# Experiments
+
