@@ -126,6 +126,10 @@ CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 deepspeed_pretrain.py
 # --nproc_per_node=2：表示在当前节点（机器）上启动两个进程，每个进程绑定到一块GPU。
 # 手动指定 GPU，使用 CUDA_VISIBLE_DEVICES
 ```
+或者:
+```shell
+CUDA_VISIBLE_DEVICES=0,1 deepspeed --num_gpus=2 deepspeed_pretrain.py
+```
 运行成功后，可以看到：
 ```shell
 Rank[0]: Epoch 1, step 7059 / 37256, loss 3.7812

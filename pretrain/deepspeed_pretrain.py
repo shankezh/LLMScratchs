@@ -139,6 +139,12 @@ if __name__ == '__main__':
     rank = torch.distributed.get_rank()
 
     # max_steps = (total_data_size // tokens_per_step) * num_epochs
+    print("==================================")
+    if rank == 0:
+        print("!!!!!!!!!!!!!!!!!!!11")
+        model_engine.save_checkpoint("./results/")
+        model_engine.module.save_pretrained("./results/lmq_pretrained")
+        print("##################################")
 
     for epoch in range(epoch_num):
         model_engine.train()
