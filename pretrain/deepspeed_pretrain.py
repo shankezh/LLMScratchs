@@ -152,7 +152,7 @@ def load_checkpoint(model_engine, save_dir):
 def get_json_param(url):
     with open(url, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
-        return json_data["train_micro_batch_size_per_gpu"], json_data["gradient_accumulation_steps"]
+        return json_data["train_micro_batch_size_per_gpu"], json_data["gradient_accumulation_steps"], json_data["total_data_size"]
 
 def set_json_param_max_step(url, max_steps):
     with open(url, 'r', encoding='utf-8') as fr:
@@ -183,14 +183,12 @@ if __name__ == '__main__':
     ds_config_path = "ds_config.json"
     max_checkpoints = 3  # 最多保留 3 个检查点
     save_interval = 5000  # 每隔 100 个 step 保存一次
-    
     epoch_num = 1
-    total_data_size = 5364883
     
     gpu_num_devices = torch.cuda.device_count() # GPU数量
     print(f"current have {gpu_num_devices} GPU devices")
     
-    train_micro_batch_size_per_gpu, gradient_accumulation_steps = get_json_param(ds_config_path)
+    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size = get_json_param(ds_config_path)
 
     effective_batch_size = train_micro_batch_size_per_gpu  * gpu_num_devices
     # 计算最大步数
