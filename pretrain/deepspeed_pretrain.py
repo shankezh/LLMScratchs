@@ -173,13 +173,25 @@ if __name__ == '__main__':
     ###########################################################
     deepspeed.init_distributed()
 
-    # 设置DeepSpeed的分布式环境
+    ###########################################################
+    # 2. setting distributed environment
+    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
+    # eg: four GPUs, 0,1,2,3
+    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
+    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
+    ###########################################################
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     torch.cuda.set_device(local_rank)
-    # deepspeed会自动分配设备
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    ###########################################################
+    # 3. get model and tokenizer
+    ###########################################################
     model_path = None
     model, tokenizer = init_model_and_tokenizer(model_path)
+
+    ###########################################################
+    # 4. setting data and config tokenizer function
+    ###########################################################
     data_path = "../data/pretrain_train.json"
     tokenized_train_dataset = prepare_data(data_path, tokenizer)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
