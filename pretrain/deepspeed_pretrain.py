@@ -163,8 +163,14 @@ def set_json_param_max_step(url, max_steps):
         print(f"Successfully saved updated config to {url}.")
 
 if __name__ == '__main__':
-
+    ###########################################################
+    # concrete random seed, make sure process can be repeated#
+    ###########################################################
     torch.manual_seed(123)
+
+    ###########################################################
+    # 1. deepspeed need initial function for distributed()
+    ###########################################################
     deepspeed.init_distributed()
 
     # 设置DeepSpeed的分布式环境
