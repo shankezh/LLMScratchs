@@ -31,3 +31,5 @@ checkpoint*/
 #
 LMQ*/
 GMQ*/
+
+*.chainlit
