@@ -32,4 +32,4 @@ checkpoint*/
 LMQ*/
 GMQ*/
 
-*.chainlit
+.chainlit/
