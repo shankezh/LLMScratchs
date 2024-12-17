@@ -139,14 +139,18 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
         shutil.rmtree(oldest_path)
 
 def load_checkpoint(model_engine, save_dir):
-    checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
-    if not checkpoints:
-        print("No checkpoints found to load.")
-        return None
+    try:
+        checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+        if not checkpoints:
+            print("No checkpoints found to load.")
+            return None
 
-    latest_checkpoint = max(checkpoints, key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
-    print(f"Loading checkpoint: {latest_checkpoint}")
-    model_engine.load_checkpoint(save_dir, latest_checkpoint)
+        latest_checkpoint = max(checkpoints, key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
+        print(f"Loading checkpoint: {latest_checkpoint}")
+        model_engine.load_checkpoint(save_dir, latest_checkpoint)
+    except:
+        print("No checkpoints found to load or broken.")
+        return None
     return latest_checkpoint
 
 def get_json_param(url):
