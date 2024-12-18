@@ -7,6 +7,9 @@ DeepSpeed使用方法:[DeepSpeedGuide](deepspeed_guide.md)
 V100-32G GMQ(0.1B)训练
 A100-80G LMQ(0.6B)训练
 
+## 模型文件
+LMQ是llama3.2的架构，对参数做了小修改，分词器使用了Qwen2.5的分词器 [ModelScope LMQ-0.6B Link](https://modelscope.cn/models/hogenzhu/LMQ-0.5B/summary)<br>
+
 ## 文件目录
 > ./pretrain                        #当前目录<br>
 > ./pretrain/hf_pretrain.py         #基于Huggingface，但上下文使用了拼接形式<br>
