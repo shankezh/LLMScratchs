@@ -1,14 +1,15 @@
-# LLMScratchs
-这个仓库用来反应关于大模型相关的学习成果，并且将会覆盖训练和推理两个部分。
-对于代码部分，这个仓库会首先基于原理和相关学习资料，基于pytorch原生代码进行实现，然后再会根据当前热门框架，例如Huggingface等进行实现等。
+# Introduction
+这个仓库展示关于大模型相关内容，主要针对文本生成，且会覆盖训练和推理两个部分。
+对于代码部分，首先基于原理和相关学习资料，基于pytorch原生代码进行实现，然后再会根据当前热门框架，例如Huggingface等进行实现等。
 在实现过程中，会顺手将一些收集到的调参，训练心得等学习资料进行整理，用于分享和记录。
 
-包含训练方式：<br>
-Pretrain guide:[Pretrain Link](pretrain) <br>
-SFT guide:[SFT Link](sft) <br>
-DPO guide:[DPO Link](dpo) <br>
+## 训练方式<br>
+Pretrain Guide:[Pretrain Link](pretrain) <br>
+SFT Guide:[SFT Link](sft) <br>
+DPO Guide:[DPO Link](dpo) <br>
+LoRA Guide:[x] to be continued. <br>
 
-目前已实现方式：<br>
+## 目前已实现方式
 Torch[√] <br>
 HuggingFace[√]<br>
 DeepSpeed[√] (一机多卡)<br>
@@ -18,6 +19,8 @@ GPT 2<br>
 LLAMA 2<br>
 LLAMA 3.2<br>
 
+## WebUI
+本项目使用chainlit作为前端chat界面。[WebUI Link] to be coninued.
 
 ## 推理
 如果只有cpu，推荐:llama.cpp (如果使用知识简单使用开原模型，推荐安装ollama)
