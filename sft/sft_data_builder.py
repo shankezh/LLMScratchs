@@ -51,15 +51,6 @@ def build_specific_data(name, path):
         fj.write("]")
         print("done..")
 
-####################################################
-# only extract chinese categories items, format is shareGPT
-###################################################
-def build_cn_data(name, path):
-    count = 0
-    # define target categories in firefly datasets
-    cn_category_list = ["NLI", "Summary", "Couplet", "MusicComment"]
-    with open("sft_data_cn.json", "a+") as fj:
-        fj.write("[\n")
 
 #############################################
 # transfer data to shareGPT format
@@ -109,6 +100,13 @@ def get_category_infos(path):
         category_dict["total_num"] = total
         fw.write(json.dumps(category_dict, ensure_ascii=False, indent=4))
     print("done..")
+
+
+#######################################
+# To split data with different sub-categories
+#######################################
+def split_datasets(path):
+    name_list = ["NLI", "Summary", "OpenQA", "Cot", "MRC", "SentimentAnalyze", "ClassicalChinese", "AncientPoem", "BELLE"]
 
 
 if __name__ == '__main__':
