@@ -14,16 +14,17 @@ Torch[√] <br>
 HuggingFace[√]<br>
 DeepSpeed[√] (一机多卡)<br>
 
-目前包含模型：<br>
+## 仓库包含模型
+其中GPT 2 和 LLAMA3.2均提供了兼容HuggingFace接口的版本.[Model Link](model)<br>
 GPT 2<br>
 LLAMA 2<br>
 LLAMA 3.2<br>
 
 ## WebUI
-本项目使用chainlit作为前端chat界面。[WebUI Link] to be coninued.
+本项目使用chainlit作为前端chat界面。[WebUI Link](webui) to be coninued.
 
 ## 推理
-如果只有cpu，推荐:llama.cpp (如果使用知识简单使用开原模型，推荐安装ollama)
+如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)
 如果是GPU，推荐vLLM
 
 
