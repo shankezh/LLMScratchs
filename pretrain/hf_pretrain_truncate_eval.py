@@ -1,43 +1,61 @@
 from transformers import AutoTokenizer, AutoModel, AutoConfig
 import torch
-from hf_gpt_model import GMQConfig, GMQModel
+from utilities import check_network_params
+from model.hf_gpt_model import GMQConfig, GMQModel
+from model.hf_lmq_model import LMQModel,LMQConfig
 
 def get_prompts():
     prompt_datas = [
-        '椭圆和圆的区别',
-        '中国关于马克思主义基本原理',
-        '人类大脑的主要功能是',
-        '万有引力是',
-        '世界上人口最多的国家是',
-        'DNA的全称是',
-        '数学中π的值大约是',
-        '世界上最高的山峰是',
-        '太阳系中最大的行星是',
-        '二氧化碳的化学分子式是',
-        '地球上最大的动物是',
-        '地球自转一圈大约需要',
-        '杭州市的美食有',
-        '江苏省的最好的大学',
+        '特朗普',
+        '美国',
+        '中国',
+        '英国',
+        '人工智能是'
     ]
     return prompt_datas
 
 if __name__ == '__main__':
     # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     device = torch.device('cpu')
-    # 注册自定义配置类
-    AutoConfig.register("gpt_mix_qwen", GMQConfig)
-    
-    # 注册自定义模型类
-    AutoModel.register(GMQConfig, GMQModel)
-    
-    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+
+    ######################################################
+    # For GMQ model
     # model_file = "/root/autodl-tmp/gpt2/results_truncate/checkpoint-178829"
-    model_file = "./results_truncate/gmq_pretrain_truncate"
-    # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
+    # model_file = "./results_truncate/gmq_pretrain_truncate"
+    # m_cfg, m_model,m_type = GMQConfig, GMQModel, GMQConfig.model_type
+
+    ######################################################
+    # For LMQ model
+    model_file = "./LMQ-0.5B/lmq_pretrained"
+    m_cfg, m_model, m_type = LMQConfig, LMQModel, LMQConfig.model_type
+    ########################################################
+    # 1. register customized config and model in huggingface
+    AutoConfig.register(m_type, m_cfg)
+    AutoModel.register(m_cfg, m_model)
+
+    ##########################################################
+    # For LMQ model, because model is saved by deepspeed, hence need transfer dtype
+    config = AutoConfig.from_pretrained(model_file)
+    if hasattr(config, "dtype") and isinstance(config.dtype, str):
+        config.dtype = getattr(torch, config.dtype, torch.float32)
+
+    ############################################################
+    # 2. using QWEN2.5 Tokenizer
+    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_file)
+
+    ##############################################################
+    # 3. Load model, set device and switch evaluation mode
+    model = AutoModel.from_pretrained(model_file, config=config)
     model.to(device)
     model.eval()
+
+    ###############################################################
+    # 4. get total parameters info
+    check_network_params(model)
+
+    ################################################################
+    # 5. initial test prompt and run test code
     eval_prompts = get_prompts()
 
     with torch.no_grad():
@@ -54,5 +72,5 @@ if __name__ == '__main__':
                 eos_token_id=tokenizer.eos_token_id,
                 do_sample = True
             )
-            decode_text = tokenizer.decode(output[0], skip_special_tokens=False)
+            decode_text = tokenizer.decode(output[0], skip_special_tokens=True)
             print(decode_text)
