@@ -109,6 +109,25 @@ def split_datasets(path):
     name_list = ["NLI", "Summary", "OpenQA", "Cot", "MRC", "SentimentAnalyze", "ClassicalChinese", "AncientPoem", "BELLE"]
 
 
+########################################
+# using LLM to translate items
+#######################################
+def translate_cot_items(path):
+    prompt = "当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。"
+
+    with open(path, "r") as f:
+        data = json.load(f)
+        for idx, item in enumerate(data):
+            conversations = item["conversations"]
+            for conversation in conversations:
+                if conversation["from"] == "human":
+                    input = conversation["value"]
+                elif conversation["from"] == "gpt":
+                    output = conversation["value"]
+                else:
+                    raise (ValueError, "Error Format in JSON")
+
+
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
     # build_cn_data("Summary", "sft_data_general.json")

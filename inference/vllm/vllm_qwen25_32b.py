@@ -2,7 +2,7 @@ from transformers import AutoTokenizer,AutoModelForCausalLM
 from vllm import LLM, SamplingParams
 
 def init_model_and_tokenizer():
-    model_name = "Qwen/Qwen2.5-32B-Instruct"
+    model_name = "Qwen/Qwen2.5-32B-Instruct-AWQ"
     model = AutoModelForCausalLM.from_pretrained(model_name, cache_dir="./cache")
     tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir="./cache")
     return model, tokenizer
