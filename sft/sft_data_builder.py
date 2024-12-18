@@ -113,7 +113,7 @@ def split_datasets(path):
 # using LLM to translate items
 #######################################
 def translate_cot_items(path):
-    prompt = "当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。"
+    prompt = ("当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。结果依旧使用input-cn 和 output-cn进行标注.")
 
     with open(path, "r") as f:
         data = json.load(f)
@@ -126,7 +126,7 @@ def translate_cot_items(path):
                     output = conversation["value"]
                 else:
                     raise (ValueError, "Error Format in JSON")
-
+            order = prompt + f"input: {input}\n output: {output}"
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")

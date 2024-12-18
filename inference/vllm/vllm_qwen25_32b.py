@@ -11,7 +11,8 @@ if __name__ == '__main__':
     model, tokenizer = init_model_and_tokenizer()
     sampling_params = SamplingParams(temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=512)
 
-    llm = LLM(model = model, tokenizer = tokenizer)
+    # llm = LLM(model = model, tokenizer = tokenizer)
+    llm = LLM(model=model, tokenizer=tokenizer, quantization="AWQ")
 
     outputs = llm.generate("hello, how are you?")
 
