@@ -17,8 +17,8 @@ DeepSpeed使用方法:[DeepSpeedGuide](deepspeed_guide.md)
 除了填充，也可以使用拼接的方法，这样上下文之间只需要使用<|endoftext|>分隔即可。
 
 ## 演示数据
-预训练数据仓库，可以自己写个转换函数转换：[原始Data Link]<br>
-ModelScope，已经转换为jsonl格式，会更方便: [ModelScope Link]<br>
+预训练数据仓库，可以自己写个转换函数转换：[seq-monkey-data中文通用文本开源数据集 Link](https://github.com/mobvoi/seq-monkey-data/blob/main/docs/pretrain_open_corpus.md)<br>
+ModelScope，已经转换为jsonl格式，会更方便: [ModelScope Link](https://modelscope.cn/datasets/hogenzhu/LMQ/files)<br>
 
 
 # Using
