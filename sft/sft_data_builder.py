@@ -106,7 +106,7 @@ def get_category_infos(path):
 # To split data with different sub-categories
 #######################################
 def split_datasets(path):
-    with open("sft_data_meta.json", r"r") as fj:
+    with open("../data/sft_data_meta.json", "r") as fj:
         meta = json.load(fj)
     name_list = ["NLI", "Summary","Couplet","MusicComment","NER","KeywordRecognition","TextCorrection" ,"SentimentAnalyze",
                  "ProductDesc","Cot","OpenQA","AncientPoem", "TextMatching","LyricGeneration", "MRC", "ClassicalChinese",
@@ -126,7 +126,7 @@ def split_datasets(path):
             if system in name_dict.keys() and system in meta.keys():
                 name_dict[system] += 1
                 print(f"{system} : {name_dict[system]}")
-                with open("./data_subs/sft_data_{system}.json", "a+") as fj:
+                with open(f"./data_subs/sft_data_{system}.json", "a+") as fj:
                     if name_dict[system] == 1:
                         fj.write("[\n")
                         sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
@@ -176,4 +176,5 @@ def translate_cot_items(path):
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
     # build_cn_data("Summary", "sft_data_general.json")
-    get_category_infos("sft_data_cn.json")
+    # get_category_infos("../data/firefly-train-1.1M.jsonl")
+    split_datasets("../data/firefly-train-1.1M.jsonl")
