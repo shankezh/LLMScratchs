@@ -24,8 +24,17 @@ LLAMA 3.2<br>
 本项目使用chainlit作为前端chat界面。[WebUI Link](webui) to be coninued.
 
 ## 推理
-如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)
-如果是GPU，推荐vLLM
+如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)<br>
+如果是GPU，推荐vLLM, Guide: [vLLM Link](inference/vllm/readme.md)<br>
+
+## Agent
+to be continued. 代码已经完成，等后续补充.
+
+## MultiAgent.
+to be continued. 代码已经完成，等后续补充.
+
+## RAG
+to be continued. 代码已经完成，等后续补充.
 
 
 ## 模型和数据下载网站
