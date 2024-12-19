@@ -16,7 +16,7 @@ pip install auto-gptq
 # Example
 这里演示使用Qwen2.5-32B-AWQ量化模型进行推理，运行示例代码自动下载模型，如果设备GPU不存在，可以先通过命令行下下来。
 ```shell
-python vllm_qen25_32b.py
+python vllm_example.py
 ```
 [option] 单独使用命令行下载模型：
 ```shell
