@@ -172,6 +172,7 @@ def translate_cot_items(path):
                 else:
                     raise (ValueError, "Error Format in JSON")
             order = zero_shot_prompt + f"input: {input}\n output: {output}"
+            print(order)
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
