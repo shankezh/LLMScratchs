@@ -3,9 +3,9 @@ LLM预训练的目的是为了实质上是为了让模型开始构造词和词�
 DeepSpeed使用方法:[DeepSpeedGuide](deepspeed_guide.md)
 
 ## 机器配置
-4090-24G GMQ(0.1B)训练
-V100-32G GMQ(0.1B)训练
-A100-80G LMQ(0.6B)训练
+4090-24G GMQ(0.1B)训练<br>
+V100-32G GMQ(0.1B)训练<br>
+A100-80G LMQ(0.6B)训练<br>
 
 ## 模型文件
 LMQ是llama3.2的架构，对参数做了小修改，分词器使用了Qwen2.5的分词器 [ModelScope LMQ-0.6B Link](https://modelscope.cn/models/hogenzhu/LMQ-0.5B/summary)<br>
