@@ -5,8 +5,14 @@
 
 ## 训练方式<br>
 Pretrain Guide:[Pretrain Link](pretrain) <br>
+> latest update: 更新了使用deepspeed的预训练过程，并将权重上传到了ModelScope
+
 SFT Guide:[SFT Link](sft) <br>
+> latest update: 更新了一些SFT数据处理方式
+
 DPO Guide:[DPO Link](dpo) <br>
+> latest update: 使用torch实现了DPO训练
+ 
 LoRA Guide:[x] to be continued. <br>
 
 ## 目前已实现方式
@@ -26,6 +32,7 @@ LLAMA 3.2<br>
 ## 推理
 如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)<br>
 如果是GPU，推荐vLLM, Guide: [vLLM Link](inference/vllm/readme.md)<br>
+> latest update: 更新了使用qwen2.5 32B 量化模型使用案例
 
 ## Agent
 to be continued. 代码已经完成，等后续补充.
