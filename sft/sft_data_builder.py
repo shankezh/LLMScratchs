@@ -75,7 +75,7 @@ def build_data(path):
 
 
 ###############################################
-# To get all category name with number of items
+# To get all categories name with number of items
 ###############################################
 def get_category_infos(path):
     print("Building category infos...")
@@ -106,14 +106,59 @@ def get_category_infos(path):
 # To split data with different sub-categories
 #######################################
 def split_datasets(path):
-    name_list = ["NLI", "Summary", "OpenQA", "Cot", "MRC", "SentimentAnalyze", "ClassicalChinese", "AncientPoem", "BELLE"]
+    with open("sft_data_meta.json", r"r") as fj:
+        meta = json.load(fj)
+    name_list = ["NLI", "Summary","Couplet","MusicComment","NER","KeywordRecognition","TextCorrection" ,"SentimentAnalyze",
+                 "ProductDesc","Cot","OpenQA","AncientPoem", "TextMatching","LyricGeneration", "MRC", "ClassicalChinese",
+                 "Composition","JinYongGeneration", "BELLE"]
+    name_dict = {name:0 for name in name_list}
+
+    import os
+    os.makedirs("./data_subs", exist_ok=True)
+
+    # open target file
+    with open(path, "r") as f:
+        for line in f:
+            data = json.loads(line)
+            system = data["kind"]
+            user = data["input"]
+            assistant = data["target"]
+            if system in name_dict.keys() and system in meta.keys():
+                name_dict[system] += 1
+                print(f"{system} : {name_dict[system]}")
+                with open("./data_subs/sft_data_{system}.json", "a+") as fj:
+                    if name_dict[system] == 1:
+                        fj.write("[\n")
+                        sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                           system=system, tools=[]).to_dict()
+                        fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                        fj.write(",\n")
+                    elif name_dict[system] == meta[system]:
+                        sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                           system=system, tools=[]).to_dict()
+                        fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                        fj.write("]\n")
+                    else:
+                        sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                           system=system, tools=[]).to_dict()
+                        fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                        fj.write(",\n")
+
+                fj.close()
+    print("done..")
+
+
+
+
 
 
 ########################################
 # using LLM to translate items
 #######################################
 def translate_cot_items(path):
-    prompt = ("当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。结果依旧使用input-cn 和 output-cn进行标注.")
+    zero_shot_prompt = ("当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input和output对应的部分不需要进行额外扩展或改写，务必使用中文。结果依旧使用input-cn 和 output-cn进行标注.")
+
+    # prompt = ("当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。结果依旧使用input-cn 和 output-cn进行标注.")
 
     with open(path, "r") as f:
         data = json.load(f)
@@ -126,7 +171,7 @@ def translate_cot_items(path):
                     output = conversation["value"]
                 else:
                     raise (ValueError, "Error Format in JSON")
-            order = prompt + f"input: {input}\n output: {output}"
+            order = zero_shot_prompt + f"input: {input}\n output: {output}"
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
