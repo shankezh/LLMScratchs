@@ -178,8 +178,9 @@ def translate_cot_items(path):
 
     with open(path, "r") as f:
         data = json.load(f)
+        loss_items_idx = []
         batch_message = []
-        batch_size = 6
+        batch_size = 5   # 50,000 items can be divide exactly
         batch_count = 0
         process_count = 1
         system = "Cot"
@@ -205,7 +206,7 @@ def translate_cot_items(path):
                 outputs = llm.chat(messages=batch_message, sampling_params=sampling_params, use_tqdm=True)
                 batch_message = []
                 batch_count = 0
-                for output in outputs:
+                for idx_out, output in enumerate(outputs):
                     translate_res = output.outputs[0].text
                     match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
                     if match:
@@ -234,42 +235,11 @@ def translate_cot_items(path):
                             print(f"The {process_count} process is done.")
                             process_count += 1
                     else:
-                        print("loss a match content ...")
-
-        # Process remaining batch
-        if batch_message:
-            outputs = llm.generate(batch_message, sampling_params)
-            for output in outputs:
-                translate_res = output.outputs[0].text
-                match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
-                if match:
-                    user = match.group(1).strip()
-                    assistant = match.group(2).strip()
-                    print(f"Input-CN: {user}")
-                    print(f"Output-CN: {assistant}")
-                    print(f"------------------{idx + 1}-------------------------------")
-                    with open(f"./data_subs/sft_data_Cot_CN.json", "a+") as fj:
-                        if process_count == 1:
-                            fj.write("[\n")
-                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
-                                               system=system, tools=[]).to_dict()
-                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
-                            fj.write(",\n")
-                        elif process_count == num_cot:
-                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
-                                               system=system, tools=[]).to_dict()
-                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
-                            fj.write("]\n")
-                        else:
-                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
-                                               system=system, tools=[]).to_dict()
-                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
-                            fj.write(",\n")
-                        print(f"The {process_count} process is done.")
-                        process_count += 1
-                else:
-                    print("loss a match content ...")
-
+                        global_idx = idx - batch_size + idx_out
+                        loss_items_idx.append(global_idx)
+                        print(f"loss a match content: {global_idx} ...")
+        with open("loss_item_cot.txt", "w") as fw:
+            fw.write(str(loss_items_idx))
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
