@@ -3,16 +3,18 @@ from dataclasses import dataclass, asdict
 from typing import List
 from datasets import load_dataset
 
+
 #############################
 # For ShareGPT
 ############################
 class Message:
-    def __init__(self, _from:str, value:str):
+    def __init__(self, _from: str, value: str):
         self.__dict__["from"] = _from
         self.__dict__["value"] = value
 
     def to_dict(self):
         return self.__dict__
+
 
 ###################################
 # For ShareGPT format
@@ -24,10 +26,11 @@ class SFTItem:
 
     def to_dict(self):
         return {
-            "conversations": [ msg.to_dict()  for msg in self.conversations],
+            "conversations": [msg.to_dict() for msg in self.conversations],
             "system": self.system,
             "tools": []
         }
+
 
 ###########################################################
 # Extract specific one category from file
@@ -45,7 +48,8 @@ def build_specific_data(name, path):
                 if system == "NER":
                     count += 1
                     print(f"{count} ..")
-                    sft_item = SFTItem(conversations=[Message("human",user),Message("gpt",assistant)], system=system, tools=[]).to_dict()
+                    sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)], system=system,
+                                       tools=[]).to_dict()
                     fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
                     fj.write(",\n")
         fj.write("]")
@@ -67,7 +71,8 @@ def build_data(path):
                 system = data["kind"]
                 user = data["input"]
                 assistant = data["target"]
-                sft_item = SFTItem(conversations=[Message("human",user),Message("gpt",assistant)], system=system, tools=[]).to_dict()
+                sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)], system=system,
+                                   tools=[]).to_dict()
                 fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
                 fj.write(",\n")
         fj.write("]")
@@ -108,10 +113,12 @@ def get_category_infos(path):
 def split_datasets(path):
     with open("../data/sft_data_meta.json", "r") as fj:
         meta = json.load(fj)
-    name_list = ["NLI", "Summary","Couplet","MusicComment","NER","KeywordRecognition","TextCorrection" ,"SentimentAnalyze",
-                 "ProductDesc","Cot","OpenQA","AncientPoem", "TextMatching","LyricGeneration", "MRC", "ClassicalChinese",
-                 "Composition","JinYongGeneration", "BELLE"]
-    name_dict = {name:0 for name in name_list}
+    name_list = ["NLI", "Summary", "Couplet", "MusicComment", "NER", "KeywordRecognition", "TextCorrection",
+                 "SentimentAnalyze",
+                 "ProductDesc", "Cot", "OpenQA", "AncientPoem", "TextMatching", "LyricGeneration", "MRC",
+                 "ClassicalChinese",
+                 "Composition", "JinYongGeneration", "BELLE"]
+    name_dict = {name: 0 for name in name_list}
 
     import os
     os.makedirs("./data_subs", exist_ok=True)
@@ -148,45 +155,66 @@ def split_datasets(path):
     print("done..")
 
 
-
-
-
-
 ########################################
 # using LLM to translate items
 #######################################
 def translate_cot_items(path):
     from inference.vllm.vllm_example import init_llm_and_tokenizer, build_gpt_format, build_sampling_params
-
-    model_path = "./cache"
+    import re
+    model_path = "../inference/vllm/cache"
     model_name = "Qwen/Qwen2.5-32B-Instruct-AWQ"
-    llm, tokenizer = init_llm_and_tokenizer(model_path=model_path, model_name=model_name, quantization="GPTQ", max_model_len=4096, dtype="auto")
+    llm, tokenizer = init_llm_and_tokenizer(model_path=model_path, model_name=model_name, quantization="GPTQ",
+                                            max_model_len=2048, dtype="auto")
 
-    zero_shot_prompt =r'你是zero-shot COT任务翻译大师，当前需要做数据处理，需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input和output对应的部分不需要进行额外扩展或改写，务必使用中文。结果依旧使用"input-cn": "翻译内容" 和 "output-cn": "翻译内容" 进行输出.'
+    zero_shot_prompt = r'你是zero-shot COT任务翻译大师，当前需要做数据处理，需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input和output对应的部分不需要进行额外扩展或改写，务必使用中文。结果依旧使用"input-cn": "翻译内容" 和 "output-cn": "翻译内容" 进行输出.'
 
     # prompt = ("当前需要做数据处理，我需要对链式思考任务进行翻译，要求翻译链式思考相关输入任务中的英语，将其转换成中文，要求翻译合理，通顺，流程且意思不变，请注意，你只需要翻译input部分，但output部分如果你认为推理不合理或者不够细致，请你进行完善，但务必使用中文。结果依旧使用input-cn 和 output-cn进行标注.")
 
     with open(path, "r") as f:
         data = json.load(f)
         batch_message = []
-        batch_size = 1
-        batch_count = 1
+        batch_size = 2
+        batch_count = 0
         sampling_params = build_sampling_params(max_tokens=2048)
         for idx, item in enumerate(data):
-            conversations = item["conversations"]
+            conversations = item.get("conversations", [])
+            human, gpt = None, None
             for conversation in conversations:
-                if conversation["from"] == "human":
-                    input = conversation["value"]
-                elif conversation["from"] == "gpt":
-                    output = conversation["value"]
+                if conversation.get("from") == "human":
+                    human = conversation.get("value", "")
+                elif conversation.get("from") == "gpt":
+                    gpt = conversation.get("value", "")
                 else:
-                    raise (ValueError, "Error Format in JSON")
-            message = build_gpt_format(system=zero_shot_prompt, user= f"input:\n{input}\noutput:{output}")
-            if batch_count < batch_size:
-                tokenized_text = tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=True)
-                batch_message.append(tokenized_text)
-                batch_count += 1
-                continue
+                    raise ValueError(f"Unexpected 'from' value: {conversation.get('from')}")
+
+            if not human or not gpt:
+                raise ValueError(f"Missing 'human' or 'gpt' conversation at index {idx}")
+
+            message = build_gpt_format(system=zero_shot_prompt, user=f"input:\n{human}\noutput:{gpt}")
+            tokenized_text = tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=True)
+            batch_message.append(tokenized_text)
+            batch_count += 1
+
+            if batch_count == batch_size:
+                batch_message = tokenizer.pad(batch_message, padding=True, return_tensors="pt")
+                outputs = llm.generate(batch_message, sampling_params)
+                print(outputs)
+                print("==============================================")
+                batch_message = []
+                batch_count = 0
+
+            for output in outputs:
+                translate_res = output.outputs[0].text
+                match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
+                if match:
+                    input_cn = match.group(1).strip()
+                    output_cn = match.group(2).strip()
+                    print(f"Input-CN: {input_cn}")
+                    print(f"Output-CN: {output_cn}")
+                    print("--------------------------------------------------")
+
+        # Process remaining batch
+        if batch_message:
             outputs = llm.generate(batch_message, sampling_params)
             print(outputs)
             print("==============================================")
@@ -196,4 +224,5 @@ if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
     # build_cn_data("Summary", "sft_data_general.json")
     # get_category_infos("../data/firefly-train-1.1M.jsonl")
-    split_datasets("../data/firefly-train-1.1M.jsonl")
+    # split_datasets("../data/firefly-train-1.1M.jsonl")
+    translate_cot_items("./data_subs/sft_data_Cot.json")

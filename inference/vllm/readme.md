@@ -21,6 +21,8 @@ python vllm_example.py
 [option] 单独使用命令行下载模型：
 ```shell
 huggingface-cli download Qwen/Qwen2.5-32B-Instruct-AWQ --local-dir ./cache
+# or GPTQ量化版本
+huggingface-cli download Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4 --local-dir ./cache
 ```
 
 v100-32G 不支持AWQ量化, Volta 架构不支持，需要Ampere 架构.
