@@ -171,7 +171,7 @@ def translate_cot_items(path):
         batch_message = []
         batch_size = 1
         batch_count = 1
-        sampling_params = build_sampling_params()
+        sampling_params = build_sampling_params(max_tokens=2048)
         for idx, item in enumerate(data):
             conversations = item["conversations"]
             for conversation in conversations:
@@ -188,7 +188,9 @@ def translate_cot_items(path):
                 batch_count += 1
                 continue
             outputs = llm.generate(batch_message, sampling_params)
-            
+            print(outputs)
+            print("==============================================")
+
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
