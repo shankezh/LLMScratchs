@@ -179,7 +179,7 @@ def translate_cot_items(path):
     with open(path, "r") as f:
         data = json.load(f)
         batch_message = []
-        batch_size = 1
+        batch_size = 6
         batch_count = 0
         process_count = 1
         system = "Cot"
@@ -199,17 +199,12 @@ def translate_cot_items(path):
                 raise ValueError(f"Missing 'human' or 'gpt' conversation at index {idx}")
 
             message = build_gpt_format(system=zero_shot_prompt, user=f"input:\n{human}\noutput:{gpt}")
-            tokenized_text = tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=True)
-            batch_message.append(tokenized_text)
+            batch_message.append(message)
             batch_count += 1
-
             if batch_count == batch_size:
-                outputs = llm.generate(batch_message, sampling_params)
-                # print(outputs)
-                # print("==============================================")
+                outputs = llm.chat(messages=batch_message, sampling_params=sampling_params, use_tqdm=True)
                 batch_message = []
                 batch_count = 0
-
                 for output in outputs:
                     translate_res = output.outputs[0].text
                     match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
@@ -238,12 +233,42 @@ def translate_cot_items(path):
                                 fj.write(",\n")
                             print(f"The {process_count} process is done.")
                             process_count += 1
+                    else:
+                        print("loss a match content ...")
 
-        # # Process remaining batch
-        # if batch_message:
-        #     outputs = llm.generate(batch_message, sampling_params)
-        #     print(outputs)
-        #     print("==============================================")
+        # Process remaining batch
+        if batch_message:
+            outputs = llm.generate(batch_message, sampling_params)
+            for output in outputs:
+                translate_res = output.outputs[0].text
+                match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
+                if match:
+                    user = match.group(1).strip()
+                    assistant = match.group(2).strip()
+                    print(f"Input-CN: {user}")
+                    print(f"Output-CN: {assistant}")
+                    print(f"------------------{idx + 1}-------------------------------")
+                    with open(f"./data_subs/sft_data_Cot_CN.json", "a+") as fj:
+                        if process_count == 1:
+                            fj.write("[\n")
+                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                               system=system, tools=[]).to_dict()
+                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                            fj.write(",\n")
+                        elif process_count == num_cot:
+                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                               system=system, tools=[]).to_dict()
+                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                            fj.write("]\n")
+                        else:
+                            sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                               system=system, tools=[]).to_dict()
+                            fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                            fj.write(",\n")
+                        print(f"The {process_count} process is done.")
+                        process_count += 1
+                else:
+                    print("loss a match content ...")
 
 
 if __name__ == '__main__':
