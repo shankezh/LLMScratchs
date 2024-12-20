@@ -241,9 +241,63 @@ def translate_cot_items(path):
         with open("loss_item_cot.txt", "w") as fw:
             fw.write(str(loss_items_idx))
 
+def build_cot_cn_data():
+    import pandas as pd
+    path = "../data/CoT_cn.csv"
+    df = pd.read_csv(path)
+    system = "CoT"
+    m_len = df.__len__()
+    with open("./data_subs/sft_data_Cot_CN.json", "a", encoding='utf-8') as fj:
+        for i in range(m_len):
+            if i == 0:
+                fj.write("[")
+                sft_item = SFTItem(conversations=[Message("human", df["instruction"].iloc[i]), Message("gpt", df["output"].iloc[i])],
+                                   system=system, tools=[]).to_dict()
+                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                fj.write(",\n")
+            elif i == m_len - 1:
+                sft_item = SFTItem(conversations=[Message("human", df["instruction"].iloc[i]), Message("gpt", df["output"].iloc[i])],
+                                   system=system, tools=[]).to_dict()
+                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                fj.write("]")
+            else:
+                sft_item = SFTItem(conversations=[Message("human", df["instruction"].iloc[i]), Message("gpt", df["output"].iloc[i])],
+                                   system=system, tools=[]).to_dict()
+                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                fj.write(",\n")
+            print(f"The {i} process is done.")
+        print("done ...")
+
+####################################################
+# delete english conversations in BELLE data
+# tip: key word is "翻译"
+def delete_belle_eng():
+    count = 0
+    key_words = "翻译"
+    with open("./data_subs/sft_data_BELLE.json", "r", encoding='utf-8') as fj:
+        data = json.load(fj)
+        with open("./data_subs/sft_data_BELLE_CN.json", "a", encoding='utf-8') as fa:
+            fa.write("[")
+            for item in data:
+                conversations = item.get("conversations", [])
+                for conversation in conversations:
+                    if conversation.get("from") == "human":
+                        # find translate task
+                        if key_words in conversation["value"]:
+                            count = count + 1
+                            print(f"find {count} items ...")
+                            continue
+                        else:
+                            fa.write(item)
+            fa.write("]")
+        print("done ...")
+
+
+
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")
     # build_cn_data("Summary", "sft_data_general.json")
     # get_category_infos("../data/firefly-train-1.1M.jsonl")
     # split_datasets("../data/firefly-train-1.1M.jsonl")
-    translate_cot_items("./data_subs/sft_data_Cot.json")
+    # translate_cot_items("./data_subs/sft_data_Cot.json")
+    build_cot_cn_data()

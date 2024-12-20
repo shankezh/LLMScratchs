@@ -15,7 +15,7 @@ Thumbs.db       # Windows 缩略图缓存
 # only keep empty folder
 data/*
 !data/.gitkeep
-
+data*/
 # 忽略名为 logs 的文件夹
 logs/
 
