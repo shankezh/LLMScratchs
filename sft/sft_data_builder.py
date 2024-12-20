@@ -272,13 +272,15 @@ def build_cot_cn_data():
 # delete english conversations in BELLE data
 # tip: key word is "翻译"
 def delete_belle_eng():
+    print("start ...")
     count = 0
     key_words = "翻译"
     with open("./data_subs/sft_data_BELLE.json", "r", encoding='utf-8') as fj:
         data = json.load(fj)
         with open("./data_subs/sft_data_BELLE_CN.json", "a", encoding='utf-8') as fa:
             fa.write("[")
-            for item in data:
+            data_len = len(data)
+            for idx, item in enumerate(data):
                 conversations = item.get("conversations", [])
                 for conversation in conversations:
                     if conversation.get("from") == "human":
@@ -288,7 +290,9 @@ def delete_belle_eng():
                             print(f"find {count} items ...")
                             continue
                         else:
-                            fa.write(item)
+                            fa.write(json.dumps(item, ensure_ascii=False, indent=4))
+                            if idx != (data_len-1):
+                                fa.write(",\n")
             fa.write("]")
         print("done ...")
 
@@ -300,4 +304,5 @@ if __name__ == '__main__':
     # get_category_infos("../data/firefly-train-1.1M.jsonl")
     # split_datasets("../data/firefly-train-1.1M.jsonl")
     # translate_cot_items("./data_subs/sft_data_Cot.json")
-    build_cot_cn_data()
+    # build_cot_cn_data()
+    delete_belle_eng()
