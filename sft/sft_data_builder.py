@@ -161,6 +161,12 @@ def split_datasets(path):
 def translate_cot_items(path):
     from inference.vllm.vllm_example import init_llm_and_tokenizer, build_gpt_format, build_sampling_params
     import re
+
+    with open("../data/sft_data_meta.json", "r") as fj:
+        meta = json.load(fj)
+
+    num_cot = meta["Cot"]
+
     model_path = "../inference/vllm/cache"
     model_name = "Qwen/Qwen2.5-32B-Instruct-AWQ"
     llm, tokenizer = init_llm_and_tokenizer(model_path=model_path, model_name=model_name, quantization="GPTQ",
@@ -173,8 +179,10 @@ def translate_cot_items(path):
     with open(path, "r") as f:
         data = json.load(f)
         batch_message = []
-        batch_size = 2
+        batch_size = 1
         batch_count = 0
+        process_count = 1
+        system = "Cot"
         sampling_params = build_sampling_params(max_tokens=2048)
         for idx, item in enumerate(data):
             conversations = item.get("conversations", [])
@@ -196,28 +204,46 @@ def translate_cot_items(path):
             batch_count += 1
 
             if batch_count == batch_size:
-                batch_message = tokenizer.pad(batch_message, padding=True, return_tensors="pt")
                 outputs = llm.generate(batch_message, sampling_params)
-                print(outputs)
-                print("==============================================")
+                # print(outputs)
+                # print("==============================================")
                 batch_message = []
                 batch_count = 0
 
-            for output in outputs:
-                translate_res = output.outputs[0].text
-                match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
-                if match:
-                    input_cn = match.group(1).strip()
-                    output_cn = match.group(2).strip()
-                    print(f"Input-CN: {input_cn}")
-                    print(f"Output-CN: {output_cn}")
-                    print("--------------------------------------------------")
+                for output in outputs:
+                    translate_res = output.outputs[0].text
+                    match = re.search(r"input-cn:\n(.*?)\noutput-cn:(.*)", translate_res, re.S)
+                    if match:
+                        user = match.group(1).strip()
+                        assistant = match.group(2).strip()
+                        print(f"Input-CN: {user}")
+                        print(f"Output-CN: {assistant}")
+                        print(f"------------------{idx+1}-------------------------------")
+                        with open(f"./data_subs/sft_data_Cot_CN.json", "a+") as fj:
+                            if process_count == 1:
+                                fj.write("[\n")
+                                sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                                   system=system, tools=[]).to_dict()
+                                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                                fj.write(",\n")
+                            elif process_count == num_cot:
+                                sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                                   system=system, tools=[]).to_dict()
+                                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                                fj.write("]\n")
+                            else:
+                                sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)],
+                                                   system=system, tools=[]).to_dict()
+                                fj.write(json.dumps(sft_item, ensure_ascii=False, indent=4))
+                                fj.write(",\n")
+                            print(f"The {process_count} process is done.")
+                            process_count += 1
 
-        # Process remaining batch
-        if batch_message:
-            outputs = llm.generate(batch_message, sampling_params)
-            print(outputs)
-            print("==============================================")
+        # # Process remaining batch
+        # if batch_message:
+        #     outputs = llm.generate(batch_message, sampling_params)
+        #     print(outputs)
+        #     print("==============================================")
 
 
 if __name__ == '__main__':
