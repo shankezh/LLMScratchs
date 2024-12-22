@@ -41,8 +41,7 @@ def fill_template(system, conversations):
         content = message["value"]
         template += f"\n<|im_start|>{role}\n{content}{tokenizer.eos_token}"
     template += "<|endoftext|>"
-    # print("Generated Template:", template)
-    # print("Generated Template Type:", type(template))
+
     return template
 
 def tokenize_function(examples, tokenizer):
@@ -63,9 +62,10 @@ def tokenize_function(examples, tokenizer):
     )
 
     lengths = [len(tokens) for tokens in tokenized_outputs['input_ids']]
+
+            
     max_length = min(max(lengths), 2048)
-    print("Tokenized lengths:", lengths)
-    # print(f"max_length is : {max_length} tokens in current batch.")
+
     # 使用每个批次的 max_length 进行填充
     tokens_data = tokenizer(
         templates,
@@ -75,36 +75,34 @@ def tokenize_function(examples, tokenizer):
         return_special_tokens_mask=False,
         return_attention_mask=True,
     )
-    # print(tokens_data[:1])
-    # print("Tokenized Output:", tokens_data) 
-    print("Final tokenized batch shape:")
-    print(f"input_ids shape: {len(tokens_data['input_ids'])} x {len(tokens_data['input_ids'][0])}")
-    print(f"attention_mask shape: {len(tokens_data['attention_mask'])} x {len(tokens_data['attention_mask'][0])}")
 
     return tokens_data
 
 
 
-def prepare_data(train_data_path, val_data_path, tokenizer):
+def prepare_data(train_data_path, val_data_path, tokenizer, batch_size):
     train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
     val_dataset = load_dataset("json", keep_in_memory=True, data_files=val_data_path, split="train", streaming=True)
 
 
     tokenized_train_dataset = train_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
-        batched=True
+        batched=True,
+        remove_columns=['system', 'conversations', 'tools'],
+        batch_size= batch_size*2
     )
 
     tokenized_val_dataset = val_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
-        batched=True
+        batched=True,
+        remove_columns=['system', 'conversations', 'tools'],
+        batch_size= batch_size*2
     )
     return tokenized_train_dataset, tokenized_val_dataset
 
 
 def init_model_and_tokenizer(model_path):
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     if model_path is not None:
@@ -215,37 +213,8 @@ if __name__ == '__main__':
     val_interval = 5000     # validate model once each 5000 steps
     val_after_step = 0      # validate only trigger after a certain step
 
-
-
-    ###########################################################
-    # 1. deepspeed need initial function for distributed()
-    ###########################################################
-    deepspeed.init_distributed()
-
-    ###########################################################
-    # 2. setting distributed environment
-    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
-    # eg: four GPUs, 0,1,2,3
-    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
-    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
-    ###########################################################
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    torch.cuda.set_device(local_rank)
-
-    ###########################################################
-    # 3. get model and tokenizer
-    ###########################################################
-    model_path = "../pretrain/results/lmq_pretrained"
-    model, tokenizer = init_model_and_tokenizer(model_path)
-
-    ###########################################################
-    # 4. setting data and config tokenizer function
-    ###########################################################
-    tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding='max_length')
-    
     #############################################################
-    # 5. calculate MAX_STEPS for Streaming datasets
+    # 1. calculate MAX_STEPS for Streaming datasets
     #############################################################
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
@@ -257,6 +226,36 @@ if __name__ == '__main__':
     print(f"MAX_STEPS is {max_steps} ...")
 
     val_after_step = max_steps // 2  # validate event after half max_steps
+
+
+
+    ###########################################################
+    # 2. deepspeed need initial function for distributed()
+    ###########################################################
+    deepspeed.init_distributed()
+
+    ###########################################################
+    # 3. setting distributed environment
+    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
+    # eg: four GPUs, 0,1,2,3
+    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
+    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
+    ###########################################################
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    torch.cuda.set_device(local_rank)
+
+    ###########################################################
+    # 4. get model and tokenizer
+    ###########################################################
+    model_path = "../pretrain/results/lmq_pretrained"
+    model, tokenizer = init_model_and_tokenizer(model_path)
+
+    ###########################################################
+    # 5. setting data and config tokenizer function
+    ###########################################################
+    tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer, effective_batch_size)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    
 
     #############################################################
     # 6. warp datasets by DataLoader

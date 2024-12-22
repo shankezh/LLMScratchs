@@ -1,8 +1,8 @@
 {
   "total_data_size": 1523532,
   "val_data_size": 200,
-  "train_batch_size": 24,
-  "train_micro_batch_size_per_gpu": 2,
+  "train_batch_size": 60,
+  "train_micro_batch_size_per_gpu": 10,
   "gradient_accumulation_steps": 6,
   "optimizer": {
     "type": "AdamW",
