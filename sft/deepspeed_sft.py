@@ -155,7 +155,7 @@ def get_json_param(url):
     with open(url, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
         return json_data["train_micro_batch_size_per_gpu"], json_data["gradient_accumulation_steps"], json_data[
-            "total_data_size"]
+            "total_data_size"], json_data["val_data_size"]
 
 
 def set_json_param_max_step(url, max_steps):
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     val_data_path = "../data/pretrain_val.json"
     ds_config_path = "ds_config.json"
     save_checkpoints_dir = "./checkpoints"
-    save_final_model_dir = "./results/lmq_sft"
+    save_final_model_dir = "./results/lma_sft"
     max_checkpoints = 3   # 3 checkpoints maximum remained
     save_interval = 5000  # how many steps to save checkpoint once
     epoch_num = 1
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
 
-    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size = get_json_param(ds_config_path)
+    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size, val_data_size = get_json_param(ds_config_path)
     effective_batch_size = train_micro_batch_size_per_gpu * gpu_num_devices
 
     max_steps = total_data_size // effective_batch_size
@@ -265,7 +265,10 @@ if __name__ == '__main__':
     ###################################################################
     for epoch in range(epoch_num):
         model_engine.train()
+        val_loss_ave = 0    # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader):
+
+            # assign data to same device
             train_batch = {k:v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
             # forward propagate
@@ -278,11 +281,24 @@ if __name__ == '__main__':
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
 
-            # running validate
-            if val_after_step > 0 and (step + 1) % val_after_step == 0:
+            # running validate after val_after_step
+            if step > val_after_step and (step + 1) % val_interval == 0:
+                print("start evaluated ...")
+                val_loss_ave = 0
                 model_engine.eval()
                 for val_step, val_batch in enumerate(val_dataloader):
                     val_batch = {k:v.to(model_engine.local_rank) for k, v in val_batch.items()}
                     val_loss, _ = model_engine(input_ids=val_batch["input_ids"], attention_mask=val_batch["attention_mask"], labels=val_batch["input_ids"])
-                    # print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1}, ")
-                    # todo: val loss should be average ?
+                    print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1}, val_step: {val_step+1}, batch_loss: {val_loss.item():.4f}")
+                    val_loss_ave += val_loss.item()
+                val_loss_ave = val_loss_ave / val_data_size
+                # switch to training mode
+                model_engine.train()
+
+            print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
+
+            if step % save_interval == 0:
+                save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step,max_checkpoints)
+                print("Save checkpoint ...")
+    if rank == 0:
+        save_model(model_engine, save_final_model_dir)
