@@ -8,7 +8,7 @@ Pretrain Guide:[Pretrain Link](pretrain) <br>
 > latest update: 更新了使用deepspeed的预训练过程，并将权重上传到了ModelScope
 
 SFT Guide:[SFT Link](sft) <br>
-> latest update: 更新了一些SFT数据处理方式
+> latest update: 更新了deepspeed traning scrpit
 
 DPO Guide:[DPO Link](dpo) <br>
 > latest update: 使用torch实现了DPO训练
