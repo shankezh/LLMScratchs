@@ -297,7 +297,7 @@ def delete_belle_eng():
         print("done ...")
 
 
-def merge_sft_data(path):
+def merge_sft_data(output_file):
     import os
     import random
     import json
@@ -334,10 +334,11 @@ def merge_sft_data(path):
     # 加载所有数据
     data_pool = {}
     for category, file_path in data_categories.items():
-        if os.path.exists(file_path):
+        data_prefix = "./data_subs/"
+        if os.path.exists(data_prefix + file_path):
             data_pool[category] = load_data(file_path)
         else:
-            print(f"Warning: File not found for category {category} at {file_path}")
+            raise  ValueError(f"Warning: File not found for category {category} at {file_path}")
 
 
     # 汇总所有数据
@@ -353,7 +354,6 @@ def merge_sft_data(path):
     shuffle_data(all_data)
 
     # 保存到文件
-    output_file = "merged_sft_data.jsonl"
     with open(output_file, 'w', encoding='utf-8') as f:
         for entry in all_data:
             json.dump(entry, f, ensure_ascii=False)
@@ -370,3 +370,5 @@ if __name__ == '__main__':
     # translate_cot_items("./data_subs/sft_data_Cot.json")
     # build_cot_cn_data()
     delete_belle_eng()
+
+    merge_sft_data("./merged_sft_data.json")
