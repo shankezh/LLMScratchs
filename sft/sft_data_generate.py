@@ -162,14 +162,16 @@ def generate_conversation(model_name, num_samples=5000):
             "conversations": [
                 {"from": "human", "value": question},
                 {"from": "gpt", "value": answer}
-            ]
+            ],
+            "system": "Self-Introduction",
+            "tools":[]
         }
         if conversation not in data:
             data.append(conversation)
     return data
 
 # 保存数据到 JSON 文件
-def save_to_json(data, filename="styled_self_introduction_data.json"):
+def save_to_json(data, filename="sft_data_self_introduction.json"):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 

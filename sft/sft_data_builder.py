@@ -297,6 +297,70 @@ def delete_belle_eng():
         print("done ...")
 
 
+def merge_sft_data(path):
+    import os
+    import random
+    import json
+
+    # 数据类别及其文件路径配置
+    data_categories = {
+        "NLI": "sft_data_NLI.json",
+        "Summary": "sft_data_Summary.json",
+        "Couplet": "sft_data_Couplet.json",
+        "MusicComment": "sft_data_MusicComment.json",
+        "NER": "sft_data_NER.json",
+        "KeywordRecognition": "sft_data_KeywordRecognition.json",
+        "TextCorrection": "sft_data_TextCorrection.json",
+        "SentimentAnalyze": "sft_data_SentimentAnalyze.json",
+        "ProductDesc": "sft_data_ProductDesc.json",
+        "Cot": "sft_data_Cot_CN.json",
+        "OpenQA": "sft_data_OpenQA.json",
+        "AncientPoem": "sft_data_AncientPoem.json",
+        "TextMatching": "sft_data_TextMatching.json",
+        "LyricGeneration": "sft_data_LyricGeneration.json",
+        "MRC": "sft_data_MRC.json",
+        "ClassicalChinese": "sft_data_ClassicalChinese.json",
+        "Composition": "sft_data_Composition.json",
+        "JinYongGeneration": "sft_data_JinYongGeneration.json",
+        "BELLE": "sft_data_BELLE_CN.json",
+        "Self-Introduction": "sft_data_Self-Introduction.json"
+    }
+
+    # 数据加载函数
+    def load_data(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return [json.loads(line) for line in f]
+
+    # 加载所有数据
+    data_pool = {}
+    for category, file_path in data_categories.items():
+        if os.path.exists(file_path):
+            data_pool[category] = load_data(file_path)
+        else:
+            print(f"Warning: File not found for category {category} at {file_path}")
+
+
+    # 汇总所有数据
+    all_data = []
+    for category, data in data_pool.items():
+            all_data.extend(data)
+
+    # 随机打乱数据
+    def shuffle_data(data, seed=42):
+        random.seed(seed)
+        random.shuffle(data)
+
+    shuffle_data(all_data)
+
+    # 保存到文件
+    output_file = "merged_sft_data.jsonl"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for entry in all_data:
+            json.dump(entry, f, ensure_ascii=False)
+            f.write("\n")
+
+    print(f"Data merged and saved to {output_file}")
+
 
 if __name__ == '__main__':
     # build_data("firefly-train-1.1M.jsonl")

@@ -204,7 +204,7 @@ if __name__ == '__main__':
     save_dir = "./checkpoints"
     ds_config_path = "ds_config.json"
     max_checkpoints = 3  # 最多保留 3 个检查点
-    save_interval = 5000  # 每隔 100 个 step 保存一次
+    save_interval = 5000  # 每隔 $ 个 steps 保存一次
     epoch_num = 1
     
     gpu_num_devices = torch.cuda.device_count() # GPU数量

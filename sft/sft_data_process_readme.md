@@ -6,7 +6,7 @@
 [Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
 
 位于当前目录下的sft_data_builder.py文件，通过get_category_infos函数检查数据类别和数量,得到信息如下：
-```python
+```
 ...
 if __name__ == '__main__':
     get_category_infos("../data/firefly-train-1.1M.jsonl")
@@ -53,34 +53,37 @@ python sft_data_builder.py
 对于BELLE数据，直接通过抓关键词方法，剔除了英文翻译任务，函数见sft_data_builder.py中的delete_belle_eng()<br>
 
 ## 构造数据
-本次训练的数据缺乏自我介绍类别，因此需要构造一些数据用于自我介绍
-
+本次训练的数据缺乏自我介绍类别，因此需要构造一些数据用于自我介绍:
+```shell
+python sft_data_generate.py
+# 生成一个名为 "sft_data_self_introduction.json" 文件，包含了5000条自我介绍相关的简单数据。
+```
 
 因此正式用于SFT的数据是：
 
 
-|Category| Number of Items |Commit|
-|:---|:--------------|:---|
-|NLI| 50000         |自然语言推理|
-|Summary| 50000         |总结摘要|
-|Couplet| 50000         |对联|
-|MusicComment| 50000         |音乐评论|
-|NER| 50000         |实体识别|
-|KeywordRecognition| 50000         |关键词识别|
-|TextCorrection| 50000         |文本纠错|
-|SentimentAnalyze| 50000         |情感分析|
-|ProductDesc| 70000         |文案生成|
-|Cot| 74770         |链式思考|
-|OpenQA| 69843         |开放问答|
-|AncientPoem| 69950         |古诗仿写|
-|TextMatching| 50000         |文本相似度匹配|
-|LyricGeneration| 49985         |歌词生成|
-|MRC| 70000         |阅读理解|
-|ClassicalChinese| 50000         |文言文翻译|
-|Composition| 50000         |作文生成|
-|JinYongGeneration| 49990         |金庸风格续写|
-|BELLE|514193|通用指令|
-
+|Category| Number of Items | Commit  |
+|:---|:----------------|:--------|
+|NLI| 50000           | 自然语言推理  |
+|Summary| 50000           | 总结摘要    |
+|Couplet| 50000           | 对联      |
+|MusicComment| 50000           | 音乐评论    |
+|NER| 50000           | 实体识别    |
+|KeywordRecognition| 50000           | 关键词识别   |
+|TextCorrection| 50000           | 文本纠错    |
+|SentimentAnalyze| 50000           | 情感分析    |
+|ProductDesc| 70000           | 文案生成    |
+|Cot| 74770           | 链式思考    |
+|OpenQA| 69843           | 开放问答    |
+|AncientPoem| 69950           | 古诗仿写    |
+|TextMatching| 50000           | 文本相似度匹配 |
+|LyricGeneration| 49985           | 歌词生成    |
+|MRC| 70000           | 阅读理解    |
+|ClassicalChinese| 50000           | 文言文翻译   |
+|Composition| 50000           | 作文生成    |
+|JinYongGeneration| 49990           | 金庸风格续写  |
+|BELLE| 514193          | 通用指令    |
+|Self-Introduction| 5000            | 自我介绍    |
 
 
 
