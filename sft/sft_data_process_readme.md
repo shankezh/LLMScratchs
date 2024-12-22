@@ -86,6 +86,9 @@ python sft_data_generate.py
 |Self-Introduction| 5000            | 自我介绍    |
 
 
-
+```shell
+# 使用merge_sft_data()函数,合并所有的类别文本，并且打乱顺序
+python sft_data_builder.py
+```
 
 

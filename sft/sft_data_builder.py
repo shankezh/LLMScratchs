@@ -297,7 +297,7 @@ def delete_belle_eng():
         print("done ...")
 
 
-def merge_sft_data(output_file):
+def merge_sft_data(output_file, val_file, meta_file):
     import os
     import random
     import json
@@ -323,43 +323,68 @@ def merge_sft_data(output_file):
         "Composition": "sft_data_Composition.json",
         "JinYongGeneration": "sft_data_JinYongGeneration.json",
         "BELLE": "sft_data_BELLE_CN.json",
-        "Self-Introduction": "sft_data_Self-Introduction.json"
+        "Self-Introduction": "sft_data_self_introduction.json"
     }
 
     # 数据加载函数
     def load_data(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
-            return [json.loads(line) for line in f]
+            return json.load(f)  # 读取整个 JSON 数组
 
     # 加载所有数据
     data_pool = {}
     for category, file_path in data_categories.items():
         data_prefix = "./data_subs/"
-        if os.path.exists(data_prefix + file_path):
-            data_pool[category] = load_data(file_path)
+        aim_path = data_prefix + file_path
+        if os.path.exists(aim_path):
+            data_pool[category] = load_data(aim_path)
         else:
-            raise  ValueError(f"Warning: File not found for category {category} at {file_path}")
+            raise  ValueError(f"Warning: File not found for category {category} at {aim_path}")
 
+    # 初始化验证集和训练集
+    val_data = []
+    train_data = []
 
-    # 汇总所有数据
-    all_data = []
+    # 从每个类别中挑选10条作为验证集
     for category, data in data_pool.items():
-            all_data.extend(data)
+        random.shuffle(data)
+        val_samples = data[:10]  # 前10条作为验证集
+        train_samples = data[10:]  # 剩余数据作为训练集
 
-    # 随机打乱数据
+        val_data.extend(val_samples)
+        train_data.extend(train_samples)
+
+    # 随机打乱训练数据
     def shuffle_data(data, seed=42):
         random.seed(seed)
         random.shuffle(data)
 
-    shuffle_data(all_data)
+    shuffle_data(train_data)
 
-    # 保存到文件
+    # 保存训练数据到文件
     with open(output_file, 'w', encoding='utf-8') as f:
-        for entry in all_data:
+        for entry in train_data:
             json.dump(entry, f, ensure_ascii=False)
             f.write("\n")
 
+    # 保存验证数据到文件
+    with open(val_file, 'w', encoding='utf-8') as f:
+        for entry in val_data:
+            json.dump(entry, f, ensure_ascii=False)
+            f.write("\n")
+
+    # 创建元数据文件
+    meta_data = {
+        "training_data_count": len(train_data),
+        "validation_data_count": len(val_data)
+    }
+
+    with open(meta_file, 'w', encoding='utf-8') as f:
+        json.dump(meta_data, f, ensure_ascii=False, indent=4)
+
     print(f"Data merged and saved to {output_file}")
+    print(f"Validation data saved to {val_file}")
+    print(f"Metadata saved to {meta_file}")
 
 
 if __name__ == '__main__':
@@ -369,6 +394,6 @@ if __name__ == '__main__':
     # split_datasets("../data/firefly-train-1.1M.jsonl")
     # translate_cot_items("./data_subs/sft_data_Cot.json")
     # build_cot_cn_data()
-    delete_belle_eng()
+    # delete_belle_eng()
 
-    merge_sft_data("./merged_sft_data.json")
+    merge_sft_data("./merged_sft_data.json", "./merged_sft_data_val.json", "./merged_sft_data_meta.json")

@@ -1,5 +1,5 @@
 import torch, json
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
 import deepspeed

@@ -1,6 +1,5 @@
 {
-  "total_data_size": 5364883,
-  "val_data_size": 200,
+  "total_data_size": 1523532,
   "train_batch_size": 144,
   "train_micro_batch_size_per_gpu": 24,
   "gradient_accumulation_steps": 6,

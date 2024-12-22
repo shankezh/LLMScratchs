@@ -171,7 +171,8 @@ def generate_conversation(model_name, num_samples=5000):
     return data
 
 # 保存数据到 JSON 文件
-def save_to_json(data, filename="sft_data_self_introduction.json"):
+out_path = "./sft_data_self_introduction.json"
+def save_to_json(data, filename=out_path):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
@@ -180,4 +181,4 @@ model_name = "小辣"
 num_samples = 5000  # 生成 5000 条数据
 data = generate_conversation(model_name, num_samples)
 save_to_json(data)
-print(f"生成了 {len(data)} 条自我介绍数据，并保存到 styled_self_introduction_data.json")
+print(f"生成了 {len(data)} 条自我介绍数据，并保存到 {out_path}")
