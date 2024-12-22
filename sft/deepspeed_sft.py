@@ -1,10 +1,12 @@
 import deepspeed
 import torch
-import os
 import json
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
+import sys,os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_lmq_model import LMQModel, LMQConfig
 
 # setting SFT mode: 0 - using general system template
@@ -38,7 +40,9 @@ def fill_template(system, conversations):
         # role = "user" if role == "human" else role
         content = message["value"]
         template += f"\n<|im_start|>{role}\n{content}{tokenizer.eos_token}"
-        template += tokenizer.pad_token
+    template += "<|endoftext|>"
+    # print("Generated Template:", template)
+    # print("Generated Template Type:", type(template))
     return template
 
 def tokenize_function(examples, tokenizer):
@@ -50,18 +54,40 @@ def tokenize_function(examples, tokenizer):
         fill_template(system, conversation) for system, conversation in zip(systems, conversations)
     ]
 
-    return tokenizer(
+    tokenized_outputs = tokenizer(
         templates,
         truncation=True,
-        max_length=2048,
-        padding="False",
+        add_special_tokens=True,
+        return_attention_mask=False,
+        return_token_type_ids=False,
     )
+
+    lengths = [len(tokens) for tokens in tokenized_outputs['input_ids']]
+    max_length = min(max(lengths), 2048)
+    print("Tokenized lengths:", lengths)
+    # print(f"max_length is : {max_length} tokens in current batch.")
+    # 使用每个批次的 max_length 进行填充
+    tokens_data = tokenizer(
+        templates,
+        truncation=True,
+        max_length=max_length,
+        padding='max_length',
+        return_special_tokens_mask=False,
+        return_attention_mask=True,
+    )
+    # print(tokens_data[:1])
+    # print("Tokenized Output:", tokens_data) 
+    print("Final tokenized batch shape:")
+    print(f"input_ids shape: {len(tokens_data['input_ids'])} x {len(tokens_data['input_ids'][0])}")
+    print(f"attention_mask shape: {len(tokens_data['attention_mask'])} x {len(tokens_data['attention_mask'][0])}")
+
+    return tokens_data
 
 
 
 def prepare_data(train_data_path, val_data_path, tokenizer):
-    train_dataset = load_dataset("json", keep_in_memory=True, datafile_path=train_data_path, split="train", streaming=True)
-    val_dataset = load_dataset("json", keep_in_memory=True, datafile_path=val_data_path, split="train", streaming=True)
+    train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
+    val_dataset = load_dataset("json", keep_in_memory=True, data_files=val_data_path, split="train", streaming=True)
 
 
     tokenized_train_dataset = train_dataset.map(
@@ -82,13 +108,16 @@ def init_model_and_tokenizer(model_path):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     if model_path is not None:
-        # 注册自定义配置类
-        AutoConfig.register("llama3_2_mix_qwen2_5", LMQConfig)
-        # 注册自定义模型类
-        AutoModel.register(LMQConfig, LMQModel)
-        model = AutoModel.from_pretrained(model_path)
+        m_cfg, m_model, m_type = LMQConfig, LMQModel, LMQConfig.model_type
+        AutoConfig.register(m_type, m_cfg)
+        AutoModel.register(m_cfg, m_model)
+        config = AutoConfig.from_pretrained(model_path)
+        if hasattr(config, "dtype") and isinstance(config.dtype, str):
+            config.dtype = getattr(torch, config.dtype, torch.float32)
+        model = AutoModel.from_pretrained(model_path, config=config)
+
     else:
-        raise Exception("Please provide model_path")
+        raise ValueError("Please provide model_path")
     return model, tokenizer
 
 
@@ -175,8 +204,8 @@ if __name__ == '__main__':
     ###########################################################
     # 0. setting related files path and initial parameters
     ##########################################################
-    train_data_path = "../data/pretrain_train.json"
-    val_data_path = "../data/pretrain_val.json"
+    train_data_path = "../data/merged_sft_data.json"
+    val_data_path = "../data/merged_sft_data_val.json"
     ds_config_path = "ds_config.json"
     save_checkpoints_dir = "./checkpoints"
     save_final_model_dir = "./results/lma_sft"
@@ -206,15 +235,15 @@ if __name__ == '__main__':
     ###########################################################
     # 3. get model and tokenizer
     ###########################################################
-    model_path = None
+    model_path = "../pretrain/results/lmq_pretrained"
     model, tokenizer = init_model_and_tokenizer(model_path)
 
     ###########################################################
     # 4. setting data and config tokenizer function
     ###########################################################
     tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
-
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding='max_length')
+    
     #############################################################
     # 5. calculate MAX_STEPS for Streaming datasets
     #############################################################
@@ -232,8 +261,8 @@ if __name__ == '__main__':
     #############################################################
     # 6. warp datasets by DataLoader
     #############################################################
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
-    val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
+    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, pin_memory=True)
+    val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, pin_memory=True)
 
     #############################################################
     # 7. construct DeepSpeed env
@@ -267,8 +296,11 @@ if __name__ == '__main__':
         model_engine.train()
         val_loss_ave = 0    # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader):
-
+            # print(train_batch)
             # assign data to same device
+            for key, value in train_batch.items():
+                print(f"{key}: shape={value.shape}, dtype={value.dtype}")
+            
             train_batch = {k:v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
             # forward propagate
@@ -286,11 +318,12 @@ if __name__ == '__main__':
                 print("start evaluated ...")
                 val_loss_ave = 0
                 model_engine.eval()
-                for val_step, val_batch in enumerate(val_dataloader):
-                    val_batch = {k:v.to(model_engine.local_rank) for k, v in val_batch.items()}
-                    val_loss, _ = model_engine(input_ids=val_batch["input_ids"], attention_mask=val_batch["attention_mask"], labels=val_batch["input_ids"])
-                    print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1}, val_step: {val_step+1}, batch_loss: {val_loss.item():.4f}")
-                    val_loss_ave += val_loss.item()
+                with torch.no_grad():
+                    for val_step, val_batch in enumerate(val_dataloader):
+                        val_batch = {k:v.to(model_engine.local_rank) for k, v in val_batch.items()}
+                        val_loss, _ = model_engine(input_ids=val_batch["input_ids"], attention_mask=val_batch["attention_mask"], labels=val_batch["input_ids"])
+                        print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1}, val_step: {val_step+1}, batch_loss: {val_loss.item():.4f}")
+                        val_loss_ave += val_loss.item()
                 val_loss_ave = val_loss_ave / val_data_size
                 # switch to training mode
                 model_engine.train()
