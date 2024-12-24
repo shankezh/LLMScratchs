@@ -44,7 +44,7 @@
   "wandb": {
     "enabled": true,
     "team": "hogenzhu2023-university-of-sheffield",
-    "project": "DS_Pre",
+    "project": "DS_SFT",
     "group": "2GPUs"
   }
 }

@@ -297,8 +297,8 @@ if __name__ == '__main__':
         for step, train_batch in enumerate(train_dataloader):
             # print(train_batch)
             # assign data to same device
-            for key, value in train_batch.items():
-                print(f"{key}: shape={value.shape}, dtype={value.dtype}")
+            # for key, value in train_batch.items():
+            #     print(f"{key}: shape={value.shape}, dtype={value.dtype}")
             
             train_batch = {k:v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
