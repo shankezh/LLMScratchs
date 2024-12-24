@@ -2,8 +2,10 @@ import deepspeed
 import torch
 import json
 from torch.utils.data import DataLoader
+from torch.distributed import get_rank
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
+import shutil
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -137,8 +139,6 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
         step (int): 当前 step。
         max_checkpoints (int): 最大检查点保存数量，超过时删除旧的检查点。
     """
-    import os
-    import shutil
     # 将 epoch 和 step 作为检查点的标签
     tag = f"epoch_{epoch}_step_{step}"
     print(f"Saving checkpoint for epoch {epoch}, step {step}...")
@@ -147,19 +147,20 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
     model_engine.save_checkpoint(save_dir, tag)
 
     print(f"Checkpoint saved at {save_dir}, tag: {tag}")
-
-    # 获取当前保存的所有检查点目录
-    checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
-
-    # 检查点按创建时间排序（旧的在前）
-    checkpoints.sort(key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
-
-    # 如果保存的检查点数量超过 max_checkpoints，则删除最早的检查点
-    while len(checkpoints) > max_checkpoints:
-        oldest_checkpoint = checkpoints.pop(0)
-        oldest_path = os.path.join(save_dir, oldest_checkpoint)
-        print(f"Removing old checkpoint: {oldest_path}")
-        shutil.rmtree(oldest_path)
+    
+    if get_rank() == 0:
+        # 获取当前保存的所有检查点目录
+        checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+    
+        # 检查点按创建时间排序（旧的在前）
+        checkpoints.sort(key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
+    
+        # 如果保存的检查点数量超过 max_checkpoints，则删除最早的检查点
+        while len(checkpoints) > max_checkpoints:
+            oldest_checkpoint = checkpoints.pop(0)
+            oldest_path = os.path.join(save_dir, oldest_checkpoint)
+            print(f"Removing old checkpoint: {oldest_path}")
+            shutil.rmtree(oldest_path)
 
 
 def load_checkpoint(model_engine, save_dir):
@@ -277,24 +278,30 @@ if __name__ == '__main__':
     #    load checkpoints if existed else last_checkpoint is None
     #############################################################
     rank = torch.distributed.get_rank()
-    last_checkpoint = load_checkpoint(model_engine, save_final_model_dir)
+    last_checkpoint = load_checkpoint(model_engine, save_checkpoints_dir)
 
 
     ##############################################################
     # 9. recovery epoch and step infos
     ##############################################################
     if last_checkpoint:
-        epoch, step = map(int, last_checkpoint.split('_')[1:][::2])
+        # epoch, step = map(int, last_checkpoint.split('_')[1:][::2])    # 从检查点标签解析 epoch 和 step
+        start_epoch, start_step = map(int, [last_checkpoint.split('_')[1], last_checkpoint.split('_')[3]])
+        print(f"Resuming training from epoch {start_epoch}, step {start_step}")
     else:
-        epoch, step = 0, 0
+        start_epoch, start_step = 0, 0
 
     #################################################################
     # 10. training logic
     ###################################################################
-    for epoch in range(epoch_num):
+    for epoch in range(start_epoch, epoch_num):
         model_engine.train()
         val_loss_ave = 0    # define a slot for saving validate loss
-        for step, train_batch in enumerate(train_dataloader):
+        for step, train_batch in enumerate(train_dataloader, start=0):
+            if step <= start_step:
+                print(f"jump step {step}")
+                continue
+            
             # print(train_batch)
             # assign data to same device
             # for key, value in train_batch.items():
@@ -329,7 +336,7 @@ if __name__ == '__main__':
 
             print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
 
-            if step % save_interval == 0:
+            if step !=0 and step % save_interval == 0:
                 save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step,max_checkpoints)
                 print("Save checkpoint ...")
     if rank == 0:
