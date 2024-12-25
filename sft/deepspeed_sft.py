@@ -120,12 +120,14 @@ def init_model_and_tokenizer(model_path):
         raise ValueError("Please provide model_path")
     return model, tokenizer
 
-
+#############################################
+# deepspeed do not have dtype class, so transfer it to string
+#############################################
 def save_model(model_engine, url):
     # 确保配置中的 dtype 是字符串格式
     if hasattr(model_engine.module.config, "dtype"):
         model_engine.module.config.dtype = str(model_engine.module.config.dtype)
-    model_engine.module.save_pretrained("./results/lmq_pretrained")
+    model_engine.module.save_pretrained(url)
 
 
 def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints=3):
