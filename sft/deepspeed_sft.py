@@ -227,6 +227,8 @@ if __name__ == '__main__':
 
     max_steps = total_data_size // effective_batch_size
     print(f"MAX_STEPS is {max_steps} ...")
+    
+    set_json_param_max_step(ds_config_path, max_steps)
 
     val_after_step = max_steps // 2  # validate event after half max_steps
 

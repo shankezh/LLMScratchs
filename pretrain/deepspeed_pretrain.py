@@ -101,7 +101,7 @@ def save_model(model_engine, url):
     # 确保配置中的 dtype 是字符串格式
     if hasattr(model_engine.module.config, "dtype"):
         model_engine.module.config.dtype = str(model_engine.module.config.dtype)
-    model_engine.module.save_pretrained("./results/lmq_pretrained")
+    model_engine.module.save_pretrained(url)
 
 def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints=3):
     """
