@@ -1,7 +1,8 @@
 import deepspeed
 import torch
 import json
-from torch.utils.data import DataLoader, DistributedSampler
+from datasets.distributed import split_dataset_by_node
+from torch.utils.data import DataLoader
 from torch.distributed import get_rank
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
@@ -84,8 +85,18 @@ def tokenize_function(examples, tokenizer):
 
 
 def prepare_data(train_data_path, val_data_path, tokenizer, batch_size):
+    # get total number of process node
+    world_size = torch.distributed.get_world_size()
+    # get local rank node number
+    rank = torch.distributed.get_rank()
+
+    # load datasets as streaming form
     train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
     val_dataset = load_dataset("json", keep_in_memory=True, data_files=val_data_path, split="train", streaming=True)
+
+    # cutting datasets based on world_size, that means each process would get different part of original datasets
+    train_dataset = split_dataset_by_node(train_dataset, world_size=world_size, rank=rank)
+    # val_dataset = split_dataset_by_node(val_dataset, world_size=world_size, rank=rank)
 
     tokenized_train_dataset = train_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
@@ -266,12 +277,8 @@ if __name__ == '__main__':
     #############################################################
     # 6. warp datasets by DataLoader
     #############################################################
-    if torch.distributed.is_initialized():
-        sampler = DistributedSampler(tokenized_train_dataset)
-    else:
-        sampler = None
     train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu,
-                                  collate_fn=data_collator, pin_memory=True, sampler=sampler)
+                                  collate_fn=data_collator, pin_memory=True)
     val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu,
                                 collate_fn=data_collator, pin_memory=True)
 
@@ -305,6 +312,8 @@ if __name__ == '__main__':
     # 10. training logic
     ###################################################################
     for epoch in range(start_epoch, epoch_num):
+        # make sure could be shuffled each epoch
+        tokenized_train_dataset.set_epoch(epoch)
         model_engine.train()
         val_loss_ave = 0  # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader, start=0):
