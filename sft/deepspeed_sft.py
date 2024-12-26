@@ -115,7 +115,7 @@ def init_model_and_tokenizer(model_path):
         if hasattr(config, "dtype") and isinstance(config.dtype, str):
             config.dtype = getattr(torch, config.dtype, torch.float32)
         model = AutoModel.from_pretrained(model_path, config=config)
-
+        model = torch.compile(model)
     else:
         raise ValueError("Please provide model_path")
     return model, tokenizer

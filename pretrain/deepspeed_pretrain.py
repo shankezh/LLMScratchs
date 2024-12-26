@@ -93,7 +93,7 @@ def init_model_and_tokenizer(model_path = None):
         )
         model = LMQModel(config=model_config)
 
-    torch.compile(model)
+    model = torch.compile(model)
     return model, tokenizer
 
 
