@@ -115,27 +115,48 @@ def data_test(flag):
 
 if __name__ == '__main__':
     # torch.manual_seed(123)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    data_test_flag = False
+    #########################################################
+    # IMPORTANT: If you want to train model with multi-GPU, please check deepspeed_guide.md !!!
+    #
+    # 0. load model re-train or load_checkpoint to train
+    #    also can choose None re-start
+    ##########################################################
     # model_path = "./results/gmq_pretrain"
     model_path = None
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    data_test_flag = False  # True will print tokenized data as sample
+    train_data_path = "../data/pretrain_train.json"
+    val_data_path = "../data/pretrain_val.json"
+    model_save_path = "./results_truncate/gmq_pretrain_truncate"
+
+    #########################################################
+    # 1. init model and tokenizer
+    #########################################################
     model, tokenizer = init_model_and_tokenizer(device,model_path)
+
+    #########################################################
+    # 2. setting the training parameters
+    #########################################################
     training_args = get_training_args()
 
-    # 训练数据
-    train_dataset = load_dataset("json", keep_in_memory=True, data_files="../data/pretrain_train.json", split="train", streaming=True)
+    #########################################################
+    # 3. load the datasets as the steaming
+    #########################################################
+    train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
+    eval_dataset = load_dataset("json", keep_in_memory=True,data_files =val_data_path , split="train", streaming=True)
 
-    # 验证数据
-    eval_dataset = load_dataset("json", keep_in_memory=True,data_files = "../data/pretrain_val.json", split="train", streaming=True)
-
-    # 使用批处理进行标记化，填充
+    #########################################################
+    # 4. tokenized data and remove json key: "text"
+    #########################################################
     tokenized_train_dataset = train_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
         batched=True,
         remove_columns=["text"])
 
-    # 仅采样百分之一数量作为评估
+    #########################################################
+    # 5. only sample a part as validate, because time is limited
+    #########################################################
     # sample_size = (5364883 - 4828394)//100
     sample_size = 128
     tokenized_eval_dataset = eval_dataset.map(
@@ -144,7 +165,9 @@ if __name__ == '__main__':
         remove_columns=["text"]
     ).take(sample_size)
 
-
+    #########################################################
+    # 6. warp and pad the data
+    #########################################################
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=False  # False表示是因果语言模型建模（GPT风格预训练）
@@ -160,6 +183,12 @@ if __name__ == '__main__':
             eval_dataset = tokenized_eval_dataset,
         )
 
+        #########################################################
+        # 7. training:
+        # for resume parameters: if you wanna re-training please add below parameter,
+        # it will check latest checkpoint automatically
+        #########################################################
         # trainer.train(resume_from_checkpoint=True)
         trainer.train()
-        trainer.save_model("./results_truncate/gmq_pretrain_truncate")
+
+        trainer.save_model(model_save_path)

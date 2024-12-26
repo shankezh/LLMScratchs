@@ -41,6 +41,8 @@ def tokenize_function(examples, tokenizer ):
 
 
 def prepare_data(data_path, tokenizer):
+
+
     train_dataset = load_dataset("json", keep_in_memory=True, data_files=data_path, split="train",
                                  streaming=True)
     # 使用批处理进行标记化，填充
@@ -172,6 +174,15 @@ if __name__ == '__main__':
     ###########################################################
     torch.manual_seed(123)
 
+
+    model_save_path = "./results/lmq_pretrained"
+    data_path = "../data/pretrain_train.json"
+    save_dir = "./checkpoints"
+    ds_config_path = "ds_config.json"
+    max_checkpoints = 3  # 最多保留 3 个检查点
+    save_interval = 5000  # 每隔 $ 个 steps 保存一次
+    epoch_num = 1
+
     ###########################################################
     # 1. deepspeed need initial function for distributed()
     ###########################################################
@@ -196,16 +207,12 @@ if __name__ == '__main__':
     ###########################################################
     # 4. setting data and config tokenizer function
     ###########################################################
-    data_path = "../data/pretrain_train.json"
+
     tokenized_train_dataset = prepare_data(data_path, tokenizer)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
 
 
-    save_dir = "./checkpoints"
-    ds_config_path = "ds_config.json"
-    max_checkpoints = 3  # 最多保留 3 个检查点
-    save_interval = 5000  # 每隔 $ 个 steps 保存一次
-    epoch_num = 1
+
     
     gpu_num_devices = torch.cuda.device_count() # GPU数量
     print(f"current have {gpu_num_devices} GPU devices")
@@ -270,4 +277,4 @@ if __name__ == '__main__':
     # 这里假设模型是transformers格式，可以直接调用：
     if rank == 0:
         # model_engine.save_checkpoint("./results/")
-        save_model(model_engine, "./results/lmq_pretrained")
+        save_model(model_engine, model_save_path)

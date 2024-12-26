@@ -32,12 +32,9 @@ def preprocess_and_concatenate(dataset, tokenizer, max_length=1024):
 
 def init_model_and_tokenizer(device, model_path = None):
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if model_path is not None:
-        # 注册自定义配置类
         AutoConfig.register("gpt_mix_qwen", GMQConfig)
-        # 注册自定义模型类
         AutoModel.register(GMQConfig, GMQModel)
         model = AutoModel.from_pretrained(model_path)
         model.to(device)
@@ -62,19 +59,13 @@ def get_training_args():
     gradient_accumulation_steps = 5
     # 每条数据包含 <|endoftext|>，所以实际 token 数 = avg_token_per_sample + 1
     tokens_per_sample = avg_token_per_sample + 1
-    # num_epochs = 1
-
     # 计算总 token 数量
     total_tokens = total_data_size * tokens_per_sample
 
-    # 计算总步数
-    num_devices = torch.cuda.device_count() if torch.cuda.is_available() else 1
-    # 计算每步的 token 数量
-    effective_batch_size = per_device_train_batch_size * gradient_accumulation_steps * num_devices
+    effective_batch_size = per_device_train_batch_size
     tokens_per_step = effective_batch_size * max_length
-    # 计算最大步数
+    # To get max step based on total tokens number
     max_steps = total_tokens // tokens_per_step
-    # max_steps = (total_data_size // tokens_per_step) * num_epochs
 
 
     training_args = TrainingArguments(
@@ -108,27 +99,45 @@ if __name__ == '__main__':
     # torch.manual_seed(123)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    #########################################################
+    # IMPORTANT: If you want to train model with multi-GPU, please check deepspeed_guide.md !!!
+    #
+    # 0. load model re-train or load_checkpoint to train
+    #    also can choose None re-start
+    ##########################################################
     # model_path = "./tempsaving/gmq_pretrain"
     # model_path = "./tempsaving/checkpoint-10500"
-    
+    model_path = None
+    data_path = "../data/pretrain_train.json"
+    model_save_path = "./results/gmq_pretrain"
+
+    ###########################################
+    # 1. init model and tokenizer
+    ###########################################
     model, tokenizer = init_model_and_tokenizer(device, model_path)
     training_args = get_training_args()
 
-    streaming_dataset = load_dataset("json", data_files="../data/pretrain_train.json", split="train", streaming=True, keep_in_memory=True)
-    # # 使用批处理进行标记化，以提高效率
-    # tokenized_dataset = streaming_dataset.map(
-    #     lambda x: tokenize_function(x, tokenizer),
-    #     batched=True,
-    #     remove_columns=["text"])
+    ###########################################
+    # 2. data process with streaming form
+    ###########################################
+    streaming_dataset = load_dataset("json", data_files=data_path, split="train", streaming=True, keep_in_memory=True)
 
-    # 数据预处理：拼接并插入 <|endoftext|>
+    ###########################################
+    # To concatenate data make sure each data can be max_length
+    ###########################################
     tokenized_dataset = preprocess_and_concatenate(streaming_dataset, tokenizer)
 
+    ###########################################
+    # wrap data base GPT form, actually it only pad the batch data
+    ###########################################
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=False  # False表示是因果语言模型建模（GPT风格预训练）
     )
 
+    ##################################################################################
+    # 3. initial trainer
+    ######################################################################################
     trainer = Trainer(
         model = model,
         args = training_args,
@@ -136,5 +145,12 @@ if __name__ == '__main__':
         train_dataset = tokenized_dataset
     )
 
+    ######################################################################################
+    # 4. start training
+    ######################################################################################
     trainer.train()
-    trainer.save_model("./results/gmq_pretrain")
+
+    ######################################################################################
+    # 5. save model
+    ######################################################################################
+    trainer.save_model(model_save_path)
