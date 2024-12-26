@@ -101,7 +101,7 @@ def get_category_infos(path):
     total = 0
     for category, item_num in category_dict.items():
         total += item_num
-    with open("sft_data_meta.json", "w") as fw:
+    with open("../data/sft_data_meta.json", "w") as fw:
         category_dict["total_num"] = total
         fw.write(json.dumps(category_dict, ensure_ascii=False, indent=4))
     print("done..")
@@ -337,7 +337,9 @@ def merge_sft_data(output_file, val_file, meta_file):
         data_prefix = "./data_subs/"
         aim_path = data_prefix + file_path
         if os.path.exists(aim_path):
+            print(aim_path)
             data_pool[category] = load_data(aim_path)
+            print("done")
         else:
             raise  ValueError(f"Warning: File not found for category {category} at {aim_path}")
 
@@ -388,12 +390,27 @@ def merge_sft_data(output_file, val_file, meta_file):
 
 
 if __name__ == '__main__':
+    # transfer data to ShareGPT format
     # build_data("firefly-train-1.1M.jsonl")
-    # build_cn_data("Summary", "sft_data_general.json")
+
+    # step 1: statistic all number of sub-class items
+    # please move result file (sft_data_meta.json) to data floder
     # get_category_infos("../data/firefly-train-1.1M.jsonl")
+
+    # step 2: split datasets to sub_datasets
+    # will generate some files in the data_subs floder
     # split_datasets("../data/firefly-train-1.1M.jsonl")
+
+    ## DEPRECATED, but you still can learn this way to build your data. translate COT datasets from English to Chinese by QWEN2.5
     # translate_cot_items("./data_subs/sft_data_Cot.json")
+
+    # step 3: transfer COT datasets format to ShareGPT
+    # note: please notice replace cot datasets, download link in the note part of "数据切分"
     # build_cot_cn_data()
+
+    # step 4: Delete English content in Belle class
     # delete_belle_eng()
 
-    merge_sft_data("./merged_sft_data.json", "./merged_sft_data_val.json", "./merged_sft_data_meta.json")
+    # before start this step, please run sft_data_generate.py to create self-introduction.json
+    # step 5: merge all sub-classes files to one jsonl file
+    merge_sft_data("../data/merged_sft_data.json", "../data/merged_sft_data_val.json", "../data/merged_sft_data_meta.json")

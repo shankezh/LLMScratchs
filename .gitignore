@@ -34,3 +34,6 @@ GMQ*/
 
 .chainlit/
 cache/
+chainlit*
+
+test*

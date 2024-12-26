@@ -1,5 +1,5 @@
 import torch, json
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
 import deepspeed
@@ -219,7 +219,11 @@ if __name__ == '__main__':
 
     set_json_param_max_step(ds_config_path, max_steps)
     #
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator)
+    if torch.distributed.is_initialized():
+        sampler = DistributedSampler(tokenized_train_dataset)
+    else:
+        sampler = None
+    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, sampler=sampler)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     model_engine, optimizer, _, _ = deepspeed.initialize(
         model=model,

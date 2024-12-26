@@ -3,28 +3,35 @@ import torch
 import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from model.hf_gpt_model import GMQModel,GMQConfig
+from model.hf_lmq_model import LMQModel,LMQConfig
 from utilities import check_network_params
+
+
+def init_model_and_tokenizer(model_path):
+    m_cfg, m_model, m_type = LMQConfig, LMQModel, LMQConfig.model_type
+    AutoConfig.register(m_type, m_cfg)
+    AutoModel.register(m_cfg, m_model)
+    config = AutoConfig.from_pretrained(model_path)
+    if hasattr(config, "dtype") and isinstance(config.dtype, str):
+        config.dtype = getattr(torch, config.dtype, torch.float32)
+    model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+    model = AutoModel.from_pretrained(model_path, config=config)
+    model.to(device)
+    model = torch.compile(model)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return model, tokenizer
+
 
 
 def get_prompts():
     prompt_datas = [
-        '什么是量子力学的基本原理？',
-        '地球上有哪些重要的生态系统？',
-        '写一个关于‘健康饮食’的短促销文案。',
-        '以下两段话是否表达相同的意思？\n1. 我喜欢阅读。\n2. 阅读让我感到快乐。',
-        '以一个迷失的探险家为主角，写一个惊险的短篇故事。',
-        '以‘春天’为主题，写一首五言绝句。',
-        '写一个 Python 程序，计算一个列表中所有元素的平均值。',
-        '从以下句子中提取出人名和地名：\n‘爱丽丝在巴黎度过了一个美好的假期。’',
-        '分析以下评论的情感倾向（正面/中性/负面）：\n‘这款手机性能非常强大，但电池续航让我失望。',
-        '请说明‘一箭双雕’的含义。',
-        '将以下英文句子翻译成中文：\n‘The weather today is sunny and pleasant.’',
-        '为《射雕英雄传》中的郭靖设计一个新的冒险情节。',
-        '给出以下逻辑题的详细推理过程：\n‘如果今天是周五，那么三天后是周几？’'
+        "给周杰伦的<枫>写音乐评论。",
+        "给王心凌的<爱你>写音乐评论。"
     ]
     return prompt_datas
 
-default_system = r'你的名字是良智,是一个擅长回答问题的AI助手,请一步步地思考然后再帮助用户回答问题.'
+default_system ="你是“小辣”，一个友好的智能助手，擅长处理以下任务：自然语言推理、文本摘要、对联生成、音乐评论、实体识别、关键词识别、文本纠错、情感分析、文案生成、链式思考、开放问答、古诗仿写、文本相似度匹配、歌词生成、阅读理解、文言文翻译、作文生成、金庸风格续写、自我介绍。请根据用户的输入内容，理解任务并提供相应的回答。"
+
 
 def generate_template(system, prompt):
     if not system:
@@ -35,8 +42,9 @@ def generate_template(system, prompt):
     return template
 
 if __name__ == '__main__':
-    # device = torch.device('cuda' if torch.cuda.is_available() e'lse cpu')
-    device = torch.device('cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(device)
+    # device = torch.device('cpu')
     # 注册自定义配置类
     AutoConfig.register("gpt_mix_qwen", GMQConfig)
 
@@ -45,13 +53,12 @@ if __name__ == '__main__':
 
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     # model_file = "./results_sft/checkpoint-34362"
-    model_file = "./results_sft/gmq_sft"
-    # model_name = "Qwen/Qwen2.5-0.5B"  # 这两个测试是一样的
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_file)
-    model.to(device)
+    # model_file = "./results_sft/gmq_sft"
+    # model_name = "Qwen/Qwen2.5-0.5B"
+    model_file = "./results/lma_sft"
+    model, tokenizer = init_model_and_tokenizer(model_file)
     model.eval()
-    check_network_params(model)
+    # check_network_params(model)
     eval_prompts = get_prompts()
 
     # for prompt in eval_prompts:
@@ -69,13 +76,12 @@ if __name__ == '__main__':
             output = model.generate(
                 input_ids=input_ids['input_ids'],
                 max_length=200,
-                temperature=1.0,
-                top_k=50,
-                top_p=0.9,
+                temperature=0.9,
+                top_k=30,
+                # top_p=0.9,
                 attention_mask = input_ids['attention_mask'],
                 pad_token_id = tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
-
                 do_sample=True
             )
             decode_text = tokenizer.decode(output[0], skip_special_tokens=False)

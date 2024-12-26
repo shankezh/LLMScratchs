@@ -1,12 +1,13 @@
 import deepspeed
 import torch
 import json
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.distributed import get_rank
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
 from datasets import load_dataset
 import shutil
-import sys,os
+import sys, os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_lmq_model import LMQModel, LMQConfig
@@ -15,7 +16,8 @@ from model.hf_lmq_model import LMQModel, LMQConfig
 #                   1 - using more specific system template
 SFT_TRAINING_MODE = 0
 
-def system_template(mode:int, type=None):
+
+def system_template(mode: int, type=None):
     # The fist SFT with using general template
     if mode == 0:
         system = """你是“小辣”，一个友好的智能助手，擅长处理以下任务：自然语言推理、文本摘要、对联生成、音乐评论、实体识别、关键词识别、文本纠错、情感分析、文案生成、链式思考、开放问答、古诗仿写、文本相似度匹配、歌词生成、阅读理解、文言文翻译、作文生成、金庸风格续写、自我介绍。请根据用户的输入内容，理解任务并提供相应的回答。
@@ -23,13 +25,13 @@ def system_template(mode:int, type=None):
     else:
         # After first SFT using specific template
         task_dicts = {
-            "NLI":"content"
+            "NLI": "content"
         }
         system = task_dicts[type]
     return system
 
-def fill_template(system, conversations):
 
+def fill_template(system, conversations):
     system = system_template(SFT_TRAINING_MODE, system)
     template = f"<|im_start|>system\n{system}{tokenizer.eos_token}"
 
@@ -45,6 +47,7 @@ def fill_template(system, conversations):
     template += "<|endoftext|>"
 
     return template
+
 
 def tokenize_function(examples, tokenizer):
     # start_time = time.time()
@@ -65,7 +68,6 @@ def tokenize_function(examples, tokenizer):
 
     lengths = [len(tokens) for tokens in tokenized_outputs['input_ids']]
 
-            
     max_length = min(max(lengths), 2048)
 
     # 使用每个批次的 max_length 进行填充
@@ -81,24 +83,22 @@ def tokenize_function(examples, tokenizer):
     return tokens_data
 
 
-
 def prepare_data(train_data_path, val_data_path, tokenizer, batch_size):
     train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
     val_dataset = load_dataset("json", keep_in_memory=True, data_files=val_data_path, split="train", streaming=True)
-
 
     tokenized_train_dataset = train_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
         batched=True,
         remove_columns=['system', 'conversations', 'tools'],
-        batch_size= batch_size*2
+        batch_size=batch_size * 2
     )
 
     tokenized_val_dataset = val_dataset.map(
         lambda x: tokenize_function(x, tokenizer),
         batched=True,
         remove_columns=['system', 'conversations', 'tools'],
-        batch_size= batch_size*2
+        batch_size=batch_size * 2
     )
     return tokenized_train_dataset, tokenized_val_dataset
 
@@ -119,6 +119,7 @@ def init_model_and_tokenizer(model_path):
     else:
         raise ValueError("Please provide model_path")
     return model, tokenizer
+
 
 #############################################
 # deepspeed do not have dtype class, so transfer it to string
@@ -149,14 +150,14 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
     model_engine.save_checkpoint(save_dir, tag)
 
     print(f"Checkpoint saved at {save_dir}, tag: {tag}")
-    
+
     if get_rank() == 0:
         # 获取当前保存的所有检查点目录
         checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
-    
+
         # 检查点按创建时间排序（旧的在前）
         checkpoints.sort(key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
-    
+
         # 如果保存的检查点数量超过 max_checkpoints，则删除最早的检查点
         while len(checkpoints) > max_checkpoints:
             oldest_checkpoint = checkpoints.pop(0)
@@ -196,6 +197,7 @@ def set_json_param_max_step(url, max_steps):
         json.dump(config, fw, indent=2)
         print(f"Successfully saved updated config to {url}.")
 
+
 if __name__ == '__main__':
     ###########################################################
     # concrete random seed, make sure process can be repeated#
@@ -210,11 +212,11 @@ if __name__ == '__main__':
     ds_config_path = "ds_config.json"
     save_checkpoints_dir = "./checkpoints"
     save_final_model_dir = "./results/lma_sft"
-    max_checkpoints = 3   # 3 checkpoints maximum remained
+    max_checkpoints = 3  # 3 checkpoints maximum remained
     save_interval = 5000  # how many steps to save checkpoint once
     epoch_num = 1
-    val_interval = 5000     # validate model once each 5000 steps
-    val_after_step = 0      # validate only trigger after a certain step
+    val_interval = 5000  # validate model once each 5000 steps
+    val_after_step = 0  # validate only trigger after a certain step
 
     #############################################################
     # 1. calculate MAX_STEPS for Streaming datasets
@@ -222,17 +224,16 @@ if __name__ == '__main__':
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
 
-    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size, val_data_size = get_json_param(ds_config_path)
+    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size, val_data_size = get_json_param(
+        ds_config_path)
     effective_batch_size = train_micro_batch_size_per_gpu * gpu_num_devices
 
     max_steps = total_data_size // effective_batch_size
     print(f"MAX_STEPS is {max_steps} ...")
-    
+
     set_json_param_max_step(ds_config_path, max_steps)
 
     val_after_step = max_steps // 2  # validate event after half max_steps
-
-
 
     ###########################################################
     # 2. deepspeed need initial function for distributed()
@@ -258,23 +259,29 @@ if __name__ == '__main__':
     ###########################################################
     # 5. setting data and config tokenizer function
     ###########################################################
-    tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer, effective_batch_size)
+    tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer,
+                                                                  effective_batch_size)
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
-    
 
     #############################################################
     # 6. warp datasets by DataLoader
     #############################################################
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, pin_memory=True)
-    val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, pin_memory=True)
+    if torch.distributed.is_initialized():
+        sampler = DistributedSampler(tokenized_train_dataset)
+    else:
+        sampler = None
+    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu,
+                                  collate_fn=data_collator, pin_memory=True, sampler=sampler)
+    val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu,
+                                collate_fn=data_collator, pin_memory=True)
 
     #############################################################
     # 7. construct DeepSpeed env
     #############################################################
     model_engine, optimizer, _, _ = deepspeed.initialize(
         model=model,
-        model_parameters = model.parameters(),
-        config = ds_config_path
+        model_parameters=model.parameters(),
+        config=ds_config_path
     )
 
     #############################################################
@@ -283,7 +290,6 @@ if __name__ == '__main__':
     #############################################################
     rank = torch.distributed.get_rank()
     last_checkpoint = load_checkpoint(model_engine, save_checkpoints_dir)
-
 
     ##############################################################
     # 9. recovery epoch and step infos
@@ -300,21 +306,24 @@ if __name__ == '__main__':
     ###################################################################
     for epoch in range(start_epoch, epoch_num):
         model_engine.train()
-        val_loss_ave = 0    # define a slot for saving validate loss
+        val_loss_ave = 0  # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader, start=0):
             if step <= start_step:
                 print(f"jump step {step}")
                 continue
-            
+            if step >= max_steps:
+                break
+
             # print(train_batch)
             # assign data to same device
             # for key, value in train_batch.items():
             #     print(f"{key}: shape={value.shape}, dtype={value.dtype}")
-            
-            train_batch = {k:v.to(model_engine.local_rank) for k, v in train_batch.items()}
+
+            train_batch = {k: v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
             # forward propagate
-            train_loss, _ = model_engine(input_ids=train_batch["input_ids"], attention_mask=train_batch["attention_mask"], labels=train_batch["input_ids"])
+            train_loss, _ = model_engine(input_ids=train_batch["input_ids"],
+                                         attention_mask=train_batch["attention_mask"], labels=train_batch["input_ids"])
 
             # back propagate
             model_engine.backward(train_loss)
@@ -330,18 +339,22 @@ if __name__ == '__main__':
                 model_engine.eval()
                 with torch.no_grad():
                     for val_step, val_batch in enumerate(val_dataloader):
-                        val_batch = {k:v.to(model_engine.local_rank) for k, v in val_batch.items()}
-                        val_loss, _ = model_engine(input_ids=val_batch["input_ids"], attention_mask=val_batch["attention_mask"], labels=val_batch["input_ids"])
-                        print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1}, val_step: {val_step+1}, batch_loss: {val_loss.item():.4f}")
+                        val_batch = {k: v.to(model_engine.local_rank) for k, v in val_batch.items()}
+                        val_loss, _ = model_engine(input_ids=val_batch["input_ids"],
+                                                   attention_mask=val_batch["attention_mask"],
+                                                   labels=val_batch["input_ids"])
+                        print(
+                            f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1}, val_step: {val_step + 1}, batch_loss: {val_loss.item():.4f}")
                         val_loss_ave += val_loss.item()
                 val_loss_ave = val_loss_ave / val_data_size
                 # switch to training mode
                 model_engine.train()
 
-            print(f"Rank[{rank}]: Epoch {epoch+1}, step {step+1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
+            print(
+                f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
 
-            if step !=0 and step % save_interval == 0:
-                save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step,max_checkpoints)
+            if step != 0 and step % save_interval == 0:
+                save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step, max_checkpoints)
                 print("Save checkpoint ...")
     if rank == 0:
         save_model(model_engine, save_final_model_dir)

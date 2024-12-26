@@ -5,14 +5,40 @@
 源数据：
 [Firefly 流萤](https://huggingface.co/datasets/YeungNLP/firefly-train-1.1M) <br>
 
+反复使用sft_data_builder.py, 通过不同函数完成数据的构建，请注意不同的step需要单独运行，请自行按照顺序进行注释和反注释，同时个别步骤需要移动文件。
 位于当前目录下的sft_data_builder.py文件，通过get_category_infos函数检查数据类别和数量,得到信息如下：
 ```
 ...
 if __name__ == '__main__':
+ 
+    # transfer data to ShareGPT format
+    # build_data("firefly-train-1.1M.jsonl")
+
+    # step 1: statistic all number of sub-class items
+    # please move result file (sft_data_meta.json) to data floder
     get_category_infos("../data/firefly-train-1.1M.jsonl")
+
+    # step 2: split datasets to sub_datasets
+    # will generate some files in the data_subs floder
+    # split_datasets("../data/firefly-train-1.1M.jsonl")
+
+    ## DEPRECATED, but you still can learn this way to build your data. translate COT datasets from English to Chinese by QWEN2.5
+    # translate_cot_items("./data_subs/sft_data_Cot.json")
+
+    # step 3: transfer COT datasets format to ShareGPT
+    # note: please notice replace cot datasets, download link in the note part of "数据切分" 
+    # build_cot_cn_data()
+    
+    # step 4: Delete English content in Belle class
+    # delete_belle_eng()
+
+    # step 5: merge all sub-classes files to one jsonl file
+    # merge_sft_data("./merged_sft_data.json", "./merged_sft_data_val.json", "./merged_sft_data_meta.json")
 ```
 ```shell
 python sft_data_builder.py
+# 运行完成后请拷贝sft_data_meta.json到data目录
+# please move sft_data_meta.json to data folder
 ```
 ## 数据切分
 等待命令行处理数据完毕，可以看到sft_data_meta.json文件在同级目录，内部显示了种类及数量.
