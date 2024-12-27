@@ -282,8 +282,7 @@ if __name__ == '__main__':
     # 10. training logic
     ###################################################################
     for epoch in range(start_epoch, epoch_num):
-        # make sure could be shuffled each epoch
-        tokenized_train_dataset.set_epoch(epoch)
+
         model_engine.train()
         val_loss_ave = 0  # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader, start=0):
