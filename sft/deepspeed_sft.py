@@ -35,7 +35,7 @@ def fill_template(system, conversations):
     # system = system_template(SFT_TRAINING_MODE, system)
     if system == "simple_qa":
         system = system_template(SFT_TRAINING_MODE, system)
-    template = f"<|im_start|>system\n{system}{tokenizer.eos_token}"
+    template = f"<|im_start|>system\n{system}<|im_end|>"
 
     for message in conversations:
         role = message["from"]
@@ -45,7 +45,7 @@ def fill_template(system, conversations):
             role = "assistant"
         # role = "user" if role == "human" else role
         content = message["value"]
-        template += f"\n<|im_start|>{role}\n{content}{tokenizer.eos_token}"
+        template += f"\n<|im_start|>{role}\n{content}<|im_end|>"
     template += "<|endoftext|>"
 
     return template
