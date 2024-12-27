@@ -21,8 +21,7 @@ SFT_TRAINING_MODE = 0
 def system_template(mode: int, type=None):
     # The fist SFT with using general template
     if mode == 0:
-        system = """你是“小辣”，一个友好的智能助手，擅长处理以下任务：自然语言推理、文本摘要、对联生成、音乐评论、实体识别、关键词识别、文本纠错、情感分析、文案生成、链式思考、开放问答、古诗仿写、文本相似度匹配、歌词生成、阅读理解、文言文翻译、作文生成、金庸风格续写、自我介绍。请根据用户的输入内容，理解任务并提供相应的回答。
-        """
+        system = """你是小辣，一名友好的AI助手！请根据用户的指令回答相关问题。"""
     else:
         # After first SFT using specific template
         task_dicts = {
@@ -33,7 +32,9 @@ def system_template(mode: int, type=None):
 
 
 def fill_template(system, conversations):
-    system = system_template(SFT_TRAINING_MODE, system)
+    # system = system_template(SFT_TRAINING_MODE, system)
+    if system == "simple_qa":
+        system = system_template(SFT_TRAINING_MODE, system)
     template = f"<|im_start|>system\n{system}{tokenizer.eos_token}"
 
     for message in conversations:

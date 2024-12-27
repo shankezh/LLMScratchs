@@ -1,7 +1,6 @@
 import json
 from dataclasses import dataclass, asdict
 from typing import List
-from datasets import load_dataset
 
 
 #############################
@@ -307,7 +306,7 @@ def merge_sft_data(output_file, val_file, meta_file):
         "NLI": "sft_data_NLI.json",
         "Summary": "sft_data_Summary.json",
         "Couplet": "sft_data_Couplet.json",
-        "MusicComment": "sft_data_MusicComment.json",
+        # "MusicComment": "sft_data_MusicComment.json",
         "NER": "sft_data_NER.json",
         "KeywordRecognition": "sft_data_KeywordRecognition.json",
         "TextCorrection": "sft_data_TextCorrection.json",
@@ -388,9 +387,60 @@ def merge_sft_data(output_file, val_file, meta_file):
     print(f"Validation data saved to {val_file}")
     print(f"Metadata saved to {meta_file}")
 
+def build_simple_qa(path):
+    with open(path, 'r', encoding='utf-8') as fr:
+        with open("sft_train_data.json", 'w', encoding='utf-8') as fw:
+            for idx, line in enumerate(fr):
+                data = json.loads(line)
+                user = data["question"]
+                assistant = data["answer"]
+                system = "simple_qa"
+                sft_item = SFTItem(conversations=[Message("human", user), Message("gpt", assistant)], system=system,
+                                   tools=[]).to_dict()
+                json.dump(sft_item, fw, ensure_ascii=False)
+                fw.write("\n")
+                print("idx",idx)
 
-if __name__ == '__main__':
-    # transfer data to ShareGPT format
+
+def shuffle_sft_data(path_list):
+    import random
+    train_save_path = "../data/sft_train_data.jsonl"
+    val_save_path = "../data/sft_val_data.jsonl"
+    meta_path = "../data/sft_meta_data.json"
+
+    train_data = []
+    val_data = []
+    for path in path_list:
+        current_data = []
+        with open(path, 'r', encoding='utf-8') as fr:
+            for line in fr:
+                if line != "":
+                    current_data.append(json.loads(line))
+        random.seed(42)
+        random.shuffle(current_data)
+        val_data.extend(current_data[:10])
+        train_data.extend(current_data[10:])
+    random.seed(42)
+    random.shuffle(train_data)
+    random.seed(42)
+    random.shuffle(val_data)
+    meta_data = {
+        "training_data_count": len(train_data),
+        "validation_data_count": len(val_data)
+    }
+    with open(train_save_path, 'w', encoding='utf-8') as f:
+        for entry in train_data:
+            json.dump(entry, f, ensure_ascii=False)
+            f.write("\n")
+    with open(val_save_path, 'w', encoding='utf-8') as f:
+        for entry in val_data:
+            json.dump(entry, f, ensure_ascii=False)
+            f.write("\n")
+    with open(meta_path, 'w', encoding='utf-8') as f:
+        json.dump(meta_data, f, ensure_ascii=False, indent=4)
+
+
+if __name__ == '__main__':    # transfer data to ShareGPT format
     # build_data("firefly-train-1.1M.jsonl")
 
     # step 1: statistic all number of sub-class items
@@ -413,4 +463,8 @@ if __name__ == '__main__':
 
     # before start this step, please run sft_data_generate.py to create self-introduction.json
     # step 5: merge all sub-classes files to one jsonl file
-    merge_sft_data("../data/merged_sft_data.json", "../data/merged_sft_data_val.json", "../data/merged_sft_data_meta.json")
+    # merge_sft_data("../data/merged_sft_data.json", "../data/merged_sft_data_val.json", "../data/merged_sft_data_meta.json")
+
+
+    # build_simple_qa("../data/train.jsonl")
+    shuffle_sft_data(["../data/sft_train_sim_qa.json", "../data/sft_self_introduction.json"])
