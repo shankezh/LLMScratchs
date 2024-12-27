@@ -7,62 +7,28 @@ import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_lmq_model import LMQModel,LMQConfig
+from utilities import IterReadDataset
 
-def tokenize_function(examples, tokenizer ):
-    # 在每个文本的结尾添加 <|im_end|> 作为上下文结束标记
-    texts_with_end_token = [text + "<|im_end|>" for text in examples["text"]]
-
-    tokenized_outputs = tokenizer(
-        texts_with_end_token,
-        truncation=True,
-        add_special_tokens=True,
-        return_attention_mask=False,
-        return_token_type_ids=False,
-    )
-    lengths = [len(tokens) for tokens in tokenized_outputs['input_ids']]
-    max_length = min(max(lengths), 1024)
-
+def tokenize_function(batch, tokenizer ):
+    texts_with_end_token = [sample["text"]  for sample in batch]
 
     tokens_data = tokenizer(
         texts_with_end_token,
         truncation=True,
-        max_length=max_length,
+        max_length=1024,
         padding=False,
         return_special_tokens_mask=False,
         return_attention_mask=True)
-
-    # 把 <|im_end|>（eos_token） 换成 <|endoftext|>（对应 pad_token）在预训练阶段
-    # 遍历每个序列，替换其中的 eos_token_id 为 pad_token_id
-    tokens_data['input_ids'] = [
-        [tokenizer.pad_token_id if token_id == tokenizer.eos_token_id else token_id for token_id in seq]
-        for seq in tokens_data['input_ids']
-    ]
-    return tokens_data
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    tokenized_data = data_collator(tokens_data)
+    return tokenized_data
 
 
-def prepare_data(data_path, tokenizer):
 
-
-    train_dataset = load_dataset("json", keep_in_memory=True, data_files=data_path, split="train",
-                                 streaming=True)
-    # 使用批处理进行标记化，填充
-    tokenized_train_dataset = train_dataset.map(
-        lambda x: tokenize_function(x, tokenizer),
-        batched=True,
-        remove_columns=["text"])
-    return tokenized_train_dataset
-
-def collate_fn(batch):
-    # batch是一个list，其中每个元素是从数据集返回的字典，如:
-    # {"input_ids": [...], "attention_mask": [...]}
-    input_ids = torch.tensor([example["input_ids"] for example in batch], dtype=torch.long)
-    attention_mask = torch.tensor([example["attention_mask"] for example in batch], dtype=torch.long)
-
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask
-    }
-
+def cus_collate_fn(tokenizer):
+    def batch_collate_fn(batch):
+        return tokenize_function(batch, tokenizer)
+    return batch_collate_fn
 
 def init_model_and_tokenizer(model_path = None):
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -184,6 +150,20 @@ if __name__ == '__main__':
     epoch_num = 1
 
     ###########################################################
+    # 0. calculate MAX_STEPS for streaming datasets
+    ###########################################################
+    gpu_num_devices = torch.cuda.device_count()  # GPU数量
+    print(f"current have {gpu_num_devices} GPU devices")
+
+    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size = get_json_param(ds_config_path)
+    effective_batch_size = train_micro_batch_size_per_gpu * gpu_num_devices
+    max_steps = total_data_size // effective_batch_size
+    print(f"Max stpes is {max_steps} ... ")
+
+    set_json_param_max_step(ds_config_path, max_steps)
+
+
+    ###########################################################
     # 1. deepspeed need initial function for distributed()
     ###########################################################
     deepspeed.init_distributed()
@@ -195,6 +175,8 @@ if __name__ == '__main__':
     # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
     # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
     ###########################################################
+    world_size = torch.distributed.get_world_size()
+    rank = torch.distributed.get_rank()
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     torch.cuda.set_device(local_rank)
 
@@ -207,30 +189,11 @@ if __name__ == '__main__':
     ###########################################################
     # 4. setting data and config tokenizer function
     ###########################################################
+    train_datasets = IterReadDataset(file_path=data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
+    collate_fn = cus_collate_fn(tokenizer)
+    train_dataloader = DataLoader(train_datasets, batch_size=train_micro_batch_size_per_gpu, collate_fn=collate_fn)
 
-    tokenized_train_dataset = prepare_data(data_path, tokenizer)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
 
-
-
-    
-    gpu_num_devices = torch.cuda.device_count() # GPU数量
-    print(f"current have {gpu_num_devices} GPU devices")
-    
-    train_micro_batch_size_per_gpu, gradient_accumulation_steps, total_data_size = get_json_param(ds_config_path)
-
-    effective_batch_size = train_micro_batch_size_per_gpu  * gpu_num_devices
-    # 计算最大步数
-    max_steps = total_data_size // effective_batch_size
-    print(f"Max stpes is {max_steps} ... ")
-
-    set_json_param_max_step(ds_config_path, max_steps)
-    #
-    if torch.distributed.is_initialized():
-        sampler = DistributedSampler(tokenized_train_dataset)
-    else:
-        sampler = None
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu, collate_fn=data_collator, sampler=sampler)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     model_engine, optimizer, _, _ = deepspeed.initialize(
         model=model,
@@ -239,10 +202,8 @@ if __name__ == '__main__':
         config = ds_config_path
     )
 
-    # 获取分布式环境信息
-    rank = torch.distributed.get_rank()
-    last_checkpoint = load_checkpoint(model_engine, save_dir)
 
+    last_checkpoint = load_checkpoint(model_engine, save_dir)
     if last_checkpoint:
         epoch, step = map(int, last_checkpoint.split('_')[1:][::2])
     else:
@@ -267,14 +228,10 @@ if __name__ == '__main__':
             print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
             # 每隔 save_interval 步保存一次检查点
-            if step % save_interval == 0:
+            if step % save_interval == 0 and step !=0 and rank == 0:
                 save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints)
 
 
-    # 使用DeepSpeed保存模型
-    # DeepSpeed支持使用 model_engine.save_checkpoint 来保存权重
-    # 或使用 model_engine.module.save_pretrained 来使用transformers的save_pretrained。
-    # 这里假设模型是transformers格式，可以直接调用：
     if rank == 0:
         # model_engine.save_checkpoint("./results/")
         save_model(model_engine, model_save_path)

@@ -1,17 +1,16 @@
 import deepspeed
 import torch
 import json
-from datasets.distributed import split_dataset_by_node
 from torch.utils.data import DataLoader
 from torch.distributed import get_rank
 from transformers import AutoTokenizer, AutoModel, AutoConfig, DataCollatorWithPadding
-from datasets import load_dataset
 import shutil
 import sys, os
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from model.hf_lmq_model import LMQModel, LMQConfig
+from utilities import IterReadDataset
+
 
 # setting SFT mode: 0 - using general system template
 #                   1 - using more specific system template
@@ -51,69 +50,33 @@ def fill_template(system, conversations):
     return template
 
 
-def tokenize_function(examples, tokenizer):
+def tokenize_function(batch, tokenizer):
     # start_time = time.time()
-    systems = examples["system"]
-    conversations = examples["conversations"]
+    systems = [sample["system"] for sample in batch]
+    conversations = [sample["conversations"] for sample in batch]
 
     templates = [
         fill_template(system, conversation) for system, conversation in zip(systems, conversations)
     ]
 
-    tokenized_outputs = tokenizer(
-        templates,
-        truncation=True,
-        add_special_tokens=True,
-        return_attention_mask=False,
-        return_token_type_ids=False,
-    )
-
-    lengths = [len(tokens) for tokens in tokenized_outputs['input_ids']]
-
-    max_length = min(max(lengths), 2048)
 
     # 使用每个批次的 max_length 进行填充
     tokens_data = tokenizer(
         templates,
         truncation=True,
-        max_length=max_length,
-        padding='max_length',
+        max_length=2048,
+        padding=False,
         return_special_tokens_mask=False,
         return_attention_mask=True,
     )
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    tokenized_data = data_collator(tokens_data)
+    return tokenized_data
 
-    return tokens_data
-
-
-def prepare_data(train_data_path, val_data_path, tokenizer, batch_size):
-    # get total number of process node
-    world_size = torch.distributed.get_world_size()
-    # get local rank node number
-    rank = torch.distributed.get_rank()
-
-    # load datasets as streaming form
-    train_dataset = load_dataset("json", keep_in_memory=True, data_files=train_data_path, split="train", streaming=True)
-    val_dataset = load_dataset("json", keep_in_memory=True, data_files=val_data_path, split="train", streaming=True)
-
-    # cutting datasets based on world_size, that means each process would get different part of original datasets
-    train_dataset = split_dataset_by_node(train_dataset, world_size=world_size, rank=rank)
-    # val_dataset = split_dataset_by_node(val_dataset, world_size=world_size, rank=rank)
-
-    tokenized_train_dataset = train_dataset.map(
-        lambda x: tokenize_function(x, tokenizer),
-        batched=True,
-        remove_columns=['system', 'conversations', 'tools'],
-        batch_size=batch_size * 2
-    )
-
-    tokenized_val_dataset = val_dataset.map(
-        lambda x: tokenize_function(x, tokenizer),
-        batched=True,
-        remove_columns=['system', 'conversations', 'tools'],
-        batch_size=batch_size * 2
-    )
-    return tokenized_train_dataset, tokenized_val_dataset
-
+def cus_collate_fn(tokenizer):
+    def batch_collate_fn(batch):
+        return tokenize_function(batch, tokenizer)
+    return batch_collate_fn
 
 def init_model_and_tokenizer(model_path):
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -219,11 +182,13 @@ if __name__ == '__main__':
     ###########################################################
     # 0. setting related files path and initial parameters
     ##########################################################
-    train_data_path = "../data/merged_sft_data.json"
-    val_data_path = "../data/merged_sft_data_val.json"
+    # model_path = "../sft/LMQ-0.5B/lmq_pretrained"
+    model_path = "Qwen/Qwen2.5-0.5B"
+    train_data_path = "../data/sft_train_data.jsonl"
+    val_data_path = "../data/sft_val_data.jsonl"
     ds_config_path = "ds_config.json"
     save_checkpoints_dir = "./checkpoints"
-    save_final_model_dir = "./results/lma_sft"
+    save_final_model_dir = "./results/lmq_sft"
     max_checkpoints = 3  # 3 checkpoints maximum remained
     save_interval = 5000  # how many steps to save checkpoint once
     epoch_num = 1
@@ -259,29 +224,34 @@ if __name__ == '__main__':
     # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
     # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
     ###########################################################
+    world_size = torch.distributed.get_world_size()
+    rank = torch.distributed.get_rank()
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     torch.cuda.set_device(local_rank)
 
     ###########################################################
     # 4. get model and tokenizer
     ###########################################################
-    model_path = "../pretrain/results/lmq_pretrained"
     model, tokenizer = init_model_and_tokenizer(model_path)
 
     ###########################################################
     # 5. setting data and config tokenizer function
     ###########################################################
-    tokenized_train_dataset, tokenized_val_dataset = prepare_data(train_data_path, val_data_path, tokenizer,
-                                                                  effective_batch_size)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding=True)
+    # train_data_path = f"../data/sft_train_data{rank}.jsonl"
+    # print(f"Rank[{rank}]: load {train_data_path}")
+    train_dataset = IterReadDataset(file_path=train_data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
+    # It's small, do need spilt to three parts
+    val_dataset = IterReadDataset(file_path=val_data_path,total_lines=total_data_size, world_size=1, rank=1)
+
 
     #############################################################
     # 6. warp datasets by DataLoader
     #############################################################
-    train_dataloader = DataLoader(tokenized_train_dataset, batch_size=train_micro_batch_size_per_gpu,
-                                  collate_fn=data_collator, pin_memory=True)
-    val_dataloader = DataLoader(tokenized_val_dataset, batch_size=train_micro_batch_size_per_gpu,
-                                collate_fn=data_collator, pin_memory=True)
+    collate_fn = cus_collate_fn(tokenizer)
+    train_dataloader = DataLoader(train_dataset, batch_size=train_micro_batch_size_per_gpu,
+                                  collate_fn=collate_fn, pin_memory=True, num_workers=4)
+    val_dataloader = DataLoader(val_dataset, batch_size=train_micro_batch_size_per_gpu,
+                                collate_fn=collate_fn, pin_memory=True)
 
     #############################################################
     # 7. construct DeepSpeed env
@@ -296,7 +266,6 @@ if __name__ == '__main__':
     # 8. get distributed environment infos
     #    load checkpoints if existed else last_checkpoint is None
     #############################################################
-    rank = torch.distributed.get_rank()
     last_checkpoint = load_checkpoint(model_engine, save_checkpoints_dir)
 
     ##############################################################
@@ -318,16 +287,16 @@ if __name__ == '__main__':
         model_engine.train()
         val_loss_ave = 0  # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader, start=0):
-            if step <= start_step:
-                print(f"jump step {step}")
-                continue
-            if step >= max_steps:
-                break
+            # if step <= start_step:
+            #     print(f"jump step {step}")
+            #     continue
+
 
             # print(train_batch)
             # assign data to same device
             # for key, value in train_batch.items():
-            #     print(f"{key}: shape={value.shape}, dtype={value.dtype}")
+            #     print(f"Rank[{rank}]-{step}: {key}: shape={value.shape}, dtype={value.dtype}")
+
 
             train_batch = {k: v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
@@ -363,7 +332,7 @@ if __name__ == '__main__':
             print(
                 f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
 
-            if step != 0 and step % save_interval == 0:
+            if step != 0 and step % save_interval == 0 and rank==0:
                 save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step, max_checkpoints)
                 print("Save checkpoint ...")
     if rank == 0:
