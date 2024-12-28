@@ -14,14 +14,14 @@ class IterReadDataset(torch.utils.data.IterableDataset):
 
         # exchange rank index by offset_seed, one of shuffle approaches
         if world_size > 1 and offset_seed != 0 and offset_seed < world_size:
-            self.rank = (rank + offset_seed) % world_size
+            rank = (rank + offset_seed) % world_size
 
 
         # to calculate initial position for all sub_process
         self.per_worker = total_lines // world_size
-        self.iter_start = self.rank * self.per_worker
+        self.iter_start = rank * self.per_worker
 
-        if self.rank == self.world_size - 1:
+        if rank == self.world_size - 1:
             # let last rank deal with the remaining data
             self.iter_end = total_lines
         else:
