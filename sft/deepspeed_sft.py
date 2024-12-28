@@ -251,7 +251,7 @@ if __name__ == '__main__':
     #############################################################
     collate_fn = cus_collate_fn(tokenizer)
     train_dataloader = DataLoader(train_dataset, batch_size=train_micro_batch_size_per_gpu,
-                                  collate_fn=collate_fn, pin_memory=True, num_workers=4)
+                                  collate_fn=collate_fn, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=train_micro_batch_size_per_gpu,
                                 collate_fn=collate_fn, pin_memory=True)
 
