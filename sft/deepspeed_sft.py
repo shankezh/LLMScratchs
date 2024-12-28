@@ -250,6 +250,7 @@ if __name__ == '__main__':
     # 6. warp datasets by DataLoader
     #############################################################
     collate_fn = cus_collate_fn(tokenizer)
+    # IMPORTANT: DO NOT USE num_workers > 0 number, cause will repeat data multi-times when streaming data
     train_dataloader = DataLoader(train_dataset, batch_size=train_micro_batch_size_per_gpu,
                                   collate_fn=collate_fn, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=train_micro_batch_size_per_gpu,

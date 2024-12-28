@@ -82,7 +82,7 @@ def init_model_and_tokenizer(model_path):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     if model_path is not None:
-        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto", device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto",cache_dir="./cache/QWEN2.5-0.5B", trust_remote_code=True)
     else:
         raise ValueError("Please provide model_path")
     return model, tokenizer
@@ -196,9 +196,9 @@ if __name__ == '__main__':
     model_path = "Qwen/Qwen2.5-0.5B"
     train_data_path = "../data/sft_train_data.jsonl"
     val_data_path = "../data/sft_val_data.jsonl"
-    ds_config_path = "ds_config.json"
+    ds_config_path = "ds_config_qwen2_5.json"
     save_checkpoints_dir = "./checkpoints"
-    save_final_model_dir = "./results/lmq_sft"
+    save_final_model_dir = "./results/qwen25_0p5B"
     max_checkpoints = 3  # 3 checkpoints maximum remained
     save_interval = 5000  # how many steps to save checkpoint once
     epoch_num = 1
@@ -242,14 +242,14 @@ if __name__ == '__main__':
     #############################################################
     collate_fn = cus_collate_fn(tokenizer)
     train_dataloader = DataLoader(train_dataset, batch_size=train_micro_batch_size_per_gpu,
-                                  collate_fn=collate_fn, pin_memory=True, num_workers=4)
+                                  collate_fn=collate_fn, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=train_micro_batch_size_per_gpu,
                                 collate_fn=collate_fn, pin_memory=True)
 
     #############################################################
     # 7. construct DeepSpeed env
     #############################################################
-    model_engine, optimizer, _, _ = deepspeed.initialize(
+    model_engine, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         model_parameters=model.parameters(),
         config=ds_config_path
