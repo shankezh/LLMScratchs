@@ -140,7 +140,27 @@ if __name__ == '__main__':
     ###########################################################
     torch.manual_seed(123)
 
+    ###########################################################
+    # 0. setting distributed environment
+    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
+    # eg: four GPUs, 0,1,2,3
+    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
+    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
+    ###########################################################
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
 
+    ###########################################################
+    # 1. deepspeed need initial function for distributed()
+    ###########################################################
+    deepspeed.init_distributed()
+    world_size = torch.distributed.get_world_size()
+    rank = torch.distributed.get_rank()
+    print(f"[Init] rank={rank}, local_rank={local_rank}, cuda current device={torch.cuda.current_device()}")
+
+    ###########################################################
+    # 2. setting related files path and initial parameters
+    ##########################################################
     model_save_path = "./results/lmq_pretrained"
     data_path = "../data/pretrain_train.json"
     save_dir = "./checkpoints"
@@ -150,7 +170,7 @@ if __name__ == '__main__':
     epoch_num = 1
 
     ###########################################################
-    # 0. calculate MAX_STEPS for streaming datasets
+    # 3. calculate MAX_STEPS for streaming datasets
     ###########################################################
     gpu_num_devices = torch.cuda.device_count()  # GPU数量
     print(f"current have {gpu_num_devices} GPU devices")
@@ -162,32 +182,14 @@ if __name__ == '__main__':
 
     set_json_param_max_step(ds_config_path, max_steps)
 
-
     ###########################################################
-    # 1. deepspeed need initial function for distributed()
-    ###########################################################
-    deepspeed.init_distributed()
-
-    ###########################################################
-    # 2. setting distributed environment
-    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
-    # eg: four GPUs, 0,1,2,3
-    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
-    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
-    ###########################################################
-    world_size = torch.distributed.get_world_size()
-    rank = torch.distributed.get_rank()
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    torch.cuda.set_device(local_rank)
-
-    ###########################################################
-    # 3. get model and tokenizer
+    # 4. get model and tokenizer
     ###########################################################
     model_path = None
     model, tokenizer = init_model_and_tokenizer(model_path)
 
     ###########################################################
-    # 4. setting data and config tokenizer function
+    # 5. setting data and config tokenizer function
     ###########################################################
     train_datasets = IterReadDataset(file_path=data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
     collate_fn = cus_collate_fn(tokenizer)
@@ -224,11 +226,12 @@ if __name__ == '__main__':
 
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
+                model_engine.zero_grad()
 
             print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 
             # 每隔 save_interval 步保存一次检查点
-            if step % save_interval == 0 and step !=0 and rank == 0:
+            if step % save_interval == 0 and step !=0:
                 save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints)
 
 

@@ -172,7 +172,25 @@ if __name__ == '__main__':
     torch.manual_seed(123)
 
     ###########################################################
-    # 0. setting related files path and initial parameters
+    # 0. setting distributed environment
+    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
+    # eg: four GPUs, 0,1,2,3
+    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
+    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
+    ###########################################################
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+
+    ###########################################################
+    # 1. deepspeed need initial function for distributed()
+    ###########################################################
+    deepspeed.init_distributed()
+    world_size = torch.distributed.get_world_size()
+    rank = torch.distributed.get_rank()
+    print(f"[Init] rank={rank}, local_rank={local_rank}, cuda current device={torch.cuda.current_device()}")
+
+    ###########################################################
+    # 1. setting related files path and initial parameters
     ##########################################################
     # model_path = "../sft/LMQ-0.5B/lmq_pretrained"
     model_path = "Qwen/Qwen2.5-0.5B"
@@ -188,7 +206,7 @@ if __name__ == '__main__':
     val_after_step = 0  # validate only trigger after a certain step
 
     #############################################################
-    # 1. calculate MAX_STEPS for Streaming datasets
+    # 2. calculate MAX_STEPS for Streaming datasets
     #############################################################
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
@@ -203,23 +221,6 @@ if __name__ == '__main__':
     set_json_param_max_step(ds_config_path, max_steps)
 
     val_after_step = max_steps // 2  # validate event after half max_steps
-
-    ###########################################################
-    # 2. deepspeed need initial function for distributed()
-    ###########################################################
-    deepspeed.init_distributed()
-
-    ###########################################################
-    # 3. setting distributed environment
-    # local_rank will get GPU items from "CUDA_VISIBLE_DEVICES"
-    # eg: four GPUs, 0,1,2,3
-    # shell >> CUDA_VISIBLE_DEVICES=1,2 deepspeed --num_gpus=2 deepspeed_pretrain.py
-    # means local_rank also will show 0 and 1 items, because it will get infos from CUDA_VISIBLE_DEVICES
-    ###########################################################
-    world_size = torch.distributed.get_world_size()
-    rank = torch.distributed.get_rank()
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    torch.cuda.set_device(local_rank)
 
     ###########################################################
     # 4. get model and tokenizer
@@ -301,6 +302,7 @@ if __name__ == '__main__':
             # update gradient each gradient_accumulation_steps
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
+                model_engine.zero_grad()
 
             # running validate after val_after_step
             if step > val_after_step and (step + 1) % val_interval == 0:
@@ -323,7 +325,7 @@ if __name__ == '__main__':
             print(
                 f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
 
-            if step != 0 and step % save_interval == 0 and rank==0:
+            if step != 0 and step % save_interval == 0:
                 save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step, max_checkpoints)
                 print("Save checkpoint ...")
     if rank == 0:
