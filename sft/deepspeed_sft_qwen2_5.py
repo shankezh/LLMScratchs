@@ -232,7 +232,7 @@ if __name__ == '__main__':
     ###########################################################
     # train_data_path = f"../data/sft_train_data{rank}.jsonl"
     # print(f"Rank[{rank}]: load {train_data_path}")
-    train_dataset = IterReadDataset(file_path=train_data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
+    train_dataset = IterReadDataset(file_path=train_data_path, total_lines=total_data_size, world_size=world_size, rank=rank, offset_seed=0, buffer_size=0)
     # It's small, do need spilt to three parts
     val_dataset = IterReadDataset(file_path=val_data_path,total_lines=val_data_size, world_size=1, rank=0)
 
@@ -293,8 +293,11 @@ if __name__ == '__main__':
             train_batch = {k: v.to(model_engine.local_rank) for k, v in train_batch.items()}
 
             # forward propagate
-            train_loss, _ = model_engine(input_ids=train_batch["input_ids"],
+            output = model_engine(input_ids=train_batch["input_ids"],
                                          attention_mask=train_batch["attention_mask"], labels=train_batch["input_ids"])
+            train_loss = output.loss
+
+
 
             # back propagate
             model_engine.backward(train_loss)
