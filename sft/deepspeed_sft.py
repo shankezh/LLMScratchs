@@ -123,9 +123,8 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
 
     # 调用 DeepSpeed 的 save_checkpoint 方法
     model_engine.save_checkpoint(save_dir, tag)
-
     print(f"Checkpoint saved at {save_dir}, tag: {tag}")
-
+    torch.distributed.barrier() # 同步等待所有GPU进程
     if get_rank() == 0:
         # 获取当前保存的所有检查点目录
         checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
@@ -139,6 +138,7 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
             oldest_path = os.path.join(save_dir, oldest_checkpoint)
             print(f"Removing old checkpoint: {oldest_path}")
             shutil.rmtree(oldest_path)
+    torch.distributed.barrier()  # 同步等待所有GPU进程
 
 
 def load_checkpoint(model_engine, save_dir):
@@ -240,7 +240,8 @@ if __name__ == '__main__':
     ###########################################################
     # train_data_path = f"../data/sft_train_data{rank}.jsonl"
     # print(f"Rank[{rank}]: load {train_data_path}")
-    train_dataset = IterReadDataset(file_path=train_data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
+    train_dataset = IterReadDataset(file_path=train_data_path, total_lines=total_data_size,
+                                    world_size=world_size, rank=rank, offset_seed=1, buffer_size=1000)
     # It's small, do need spilt to three parts
     val_dataset = IterReadDataset(file_path=val_data_path,total_lines=val_data_size, world_size=1, rank=0)
 

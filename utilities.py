@@ -2,20 +2,27 @@ import gc
 import time
 import torch
 import json
+import random
 
 class IterReadDataset(torch.utils.data.IterableDataset):
-    def __init__(self, file_path:str, total_lines: int, world_size:int, rank:int):
+    def __init__(self, file_path:str, total_lines: int, world_size:int, rank:int, offset_seed:int = 0, buffer_size:int = 0):
         super().__init__()
         self.file_path = file_path
         self.world_size = world_size
         self.rank = rank
+        self.buffer_size = buffer_size
+
+        # exchange rank index by offset_seed, one of shuffle approaches
+        if world_size > 1 and offset_seed != 0 and offset_seed < world_size:
+            self.rank = (rank + offset_seed) % world_size
+
 
         # to calculate initial position for all sub_process
         self.per_worker = total_lines // world_size
         self.iter_start = self.rank * self.per_worker
 
         if self.rank == self.world_size - 1:
-            # let last rank deal rest data
+            # let last rank deal with the remaining data
             self.iter_end = total_lines
         else:
             self.iter_end = self.iter_start + self.per_worker
@@ -24,14 +31,37 @@ class IterReadDataset(torch.utils.data.IterableDataset):
         return self.iter_end - self.iter_start
 
     def __iter__(self):
+        buffer = []  # Buffer for shuffle
+
         with open(self.file_path, "r", encoding='utf-8') as file:
             for i, line in enumerate(file):
-                data = json.loads(line)
                 if i < self.iter_start:
                     continue
                 if i >= self.iter_end:
                     break
-                yield data
+
+                data = json.loads(line)
+
+                if self.buffer_size > 0:
+                    # Add to buffer
+                    buffer.append(data)
+                    if len(buffer) >= self.buffer_size:
+                        # Shuffle and yield
+                        random.shuffle(buffer)
+                        for item in buffer:
+                            yield item
+                        buffer = []
+                else:
+                    # Yield data directly without shuffle
+                    yield data
+
+            # Yield remaining data in buffer
+            if buffer:
+                random.shuffle(buffer)
+                for item in buffer:
+                    yield item
+
+
 
 
 def memory_tracking():
