@@ -191,7 +191,7 @@ if __name__ == '__main__':
     ###########################################################
     # 5. setting data and config tokenizer function
     ###########################################################
-    train_datasets = IterReadDataset(file_path=data_path, total_lines=total_data_size, world_size=world_size, rank=rank)
+    train_datasets = IterReadDataset(file_path=data_path, total_lines=total_data_size, world_size=world_size, rank=rank, offset_seed=0,buffer_size=0)
     collate_fn = cus_collate_fn(tokenizer)
     train_dataloader = DataLoader(train_datasets, batch_size=train_micro_batch_size_per_gpu, collate_fn=collate_fn)
 
@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
-                model_engine.zero_grad()
+                # model_engine.zero_grad()
 
             print(f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, loss {loss.item():.4f}")
 

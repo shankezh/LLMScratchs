@@ -279,9 +279,9 @@ if __name__ == '__main__':
         model_engine.train()
         val_loss_ave = 0  # define a slot for saving validate loss
         for step, train_batch in enumerate(train_dataloader, start=0):
-            # if step <= start_step:
-            #     print(f"jump step {step}")
-            #     continue
+            if step <= start_step:
+                print(f"jump step {step}")
+                continue
 
 
             # print(train_batch)
@@ -305,7 +305,7 @@ if __name__ == '__main__':
             # update gradient each gradient_accumulation_steps
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
-                model_engine.zero_grad()
+                # model_engine.zero_grad()
 
             # running validate after val_after_step
             if step > val_after_step and (step + 1) % val_interval == 0:
@@ -315,12 +315,12 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     for val_step, val_batch in enumerate(val_dataloader):
                         val_batch = {k: v.to(model_engine.local_rank) for k, v in val_batch.items()}
-                        val_loss, _ = model_engine(input_ids=val_batch["input_ids"],
+                        val_output = model_engine(input_ids=val_batch["input_ids"],
                                                    attention_mask=val_batch["attention_mask"],
                                                    labels=val_batch["input_ids"])
                         print(
-                            f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1}, val_step: {val_step + 1}, batch_loss: {val_loss.item():.4f}")
-                        val_loss_ave += val_loss.item()
+                            f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1}, val_step: {val_step + 1}, batch_loss: {val_output.loss.item():.4f}")
+                        val_loss_ave += val_output.loss.item()
                 val_loss_ave = val_loss_ave / val_data_size
                 # switch to training mode
                 model_engine.train()
