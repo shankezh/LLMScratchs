@@ -190,7 +190,7 @@ if __name__ == '__main__':
     print(f"[Init] rank={rank}, local_rank={local_rank}, cuda current device={torch.cuda.current_device()}")
 
     ###########################################################
-    # 1. setting related files path and initial parameters
+    # 2. setting related files path and initial parameters
     ##########################################################
     # model_path = "../sft/LMQ-0.5B/lmq_pretrained"
     model_path = "Qwen/Qwen2.5-0.5B"
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     val_after_step = 0  # validate only trigger after a certain step
 
     #############################################################
-    # 2. calculate MAX_STEPS for Streaming datasets
+    # 3. calculate MAX_STEPS for Streaming datasets
     #############################################################
     gpu_num_devices = torch.cuda.device_count()
     print(f"current have {gpu_num_devices} GPU devices")
