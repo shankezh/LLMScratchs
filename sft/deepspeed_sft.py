@@ -143,16 +143,28 @@ def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoi
 
 def load_checkpoint(model_engine, save_dir):
     try:
-        checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
-        if not checkpoints:
-            print("No checkpoints found to load.")
-            return None
+        rank = get_rank()
+        latest_checkpoint = None
 
-        latest_checkpoint = max(checkpoints, key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
-        print(f"Loading checkpoint: {latest_checkpoint}")
+        if rank == 0:
+            checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+            if not checkpoints:
+                print(f"Rank[{rank}]: No checkpoints found to load.")
+                return None
+            latest_checkpoint = max(checkpoints, key=lambda d: os.path.getmtime(os.path.join(save_dir, d)))
+        obj = [latest_checkpoint]
+        torch.distributed.broadcast(obj, src=0)
+        latest_checkpoint = obj[0]
+
+        if latest_checkpoint is None:
+            print(f"Rank[{rank}]: No valid checkpoints found after broadcast.")
+            return None
+        torch.distributed.barrier()
+        print(f"Rank[{rank}]:Loading checkpoint: {latest_checkpoint}")
         model_engine.load_checkpoint(save_dir, latest_checkpoint)
-    except:
-        print("No checkpoints found to load or broken.")
+        torch.distributed.barrier()
+    except Exception as e:
+        print(f"Failed to load checkpoint due to error: {e}")
         return None
     return latest_checkpoint
 

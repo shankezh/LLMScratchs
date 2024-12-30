@@ -112,6 +112,77 @@ def cus_collate_fn(tokenizer):
         return tokenize_function(batch, tokenizer)
     return batch_collate_fn
 
+def load_checkpoint(model_engine, save_dir):
+    try:
+        rank = get_rank()
+        latest_checkpoint = None
+
+        if rank == 0:
+            checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+            if not checkpoints:
+                print(f"Rank[{rank}]: No checkpoints found to load.")
+                return None
+            latest_checkpoint = max(checkpoints, key=lambda d: os.path.getmtime(os.path.join(save_dir, d)))
+        obj = [latest_checkpoint]
+        torch.distributed.broadcast(obj, src=0)
+        latest_checkpoint = obj[0]
+
+        if latest_checkpoint is None:
+            print(f"Rank[{rank}]: No valid checkpoints found after broadcast.")
+            return None
+        torch.distributed.barrier()
+        print(f"Rank[{rank}]:Loading checkpoint: {latest_checkpoint}")
+        model_engine.load_checkpoint(save_dir, latest_checkpoint)
+        torch.distributed.barrier()
+    except Exception as e:
+        print(f"Failed to load checkpoint due to error: {e}")
+        return None
+    return latest_checkpoint
+
+#############################################
+# deepspeed do not have dtype class, so transfer it to string
+#############################################
+def save_model(model_engine, url):
+    # 确保配置中的 dtype 是字符串格式
+    if hasattr(model_engine.module.config, "dtype"):
+        model_engine.module.config.dtype = str(model_engine.module.config.dtype)
+    model_engine.module.save_pretrained(url)
+
+
+def save_checkpoint_with_epoch(model_engine, save_dir, epoch, step, max_checkpoints=3):
+    """
+    保存 DeepSpeed 模型检查点，并将 epoch 和 step 信息包含在文件名中，限制最大保存数量。
+
+    参数:
+        model_engine: DeepSpeedEngine 对象，用于保存检查点。
+        save_dir (str): 检查点保存的目录。
+        epoch (int): 当前 epoch。
+        step (int): 当前 step。
+        max_checkpoints (int): 最大检查点保存数量，超过时删除旧的检查点。
+    """
+    # 将 epoch 和 step 作为检查点的标签
+    tag = f"epoch_{epoch}_step_{step}"
+    print(f"Saving checkpoint for epoch {epoch}, step {step}...")
+
+    # 调用 DeepSpeed 的 save_checkpoint 方法
+    model_engine.save_checkpoint(save_dir, tag)
+    print(f"Checkpoint saved at {save_dir}, tag: {tag}")
+    torch.distributed.barrier() # 同步等待所有GPU进程
+    if get_rank() == 0:
+        # 获取当前保存的所有检查点目录
+        checkpoints = [d for d in os.listdir(save_dir) if os.path.isdir(os.path.join(save_dir, d))]
+
+        # 检查点按创建时间排序（旧的在前）
+        checkpoints.sort(key=lambda d: os.path.getctime(os.path.join(save_dir, d)))
+
+        # 如果保存的检查点数量超过 max_checkpoints，则删除最早的检查点
+        while len(checkpoints) > max_checkpoints:
+            oldest_checkpoint = checkpoints.pop(0)
+            oldest_path = os.path.join(save_dir, oldest_checkpoint)
+            print(f"Removing old checkpoint: {oldest_path}")
+            shutil.rmtree(oldest_path)
+    torch.distributed.barrier()  # 同步等待所有GPU进程
+
 
 def get_json_param(url):
     with open(url, 'r', encoding='utf-8') as f:
@@ -220,5 +291,76 @@ if __name__ == '__main__':
         config=ds_config_path
     )
 
-    print(model_engine.parameters())
+    #############################################################
+    # 8. get distributed environment infos
+    #    load checkpoints if existed else last_checkpoint is None
+    #############################################################
+    last_checkpoint = load_checkpoint(model_engine, save_checkpoints_dir)
+
+    ##############################################################
+    # 9. recovery epoch and step infos
+    ##############################################################
+    if last_checkpoint:
+        # epoch, step = map(int, last_checkpoint.split('_')[1:][::2])    # 从检查点标签解析 epoch 和 step
+        start_epoch, start_step = map(int, [last_checkpoint.split('_')[1], last_checkpoint.split('_')[3]])
+        print(f"Resuming training from epoch {start_epoch}, step {start_step}")
+    else:
+        start_epoch, start_step = 0, 0
+
+    #################################################################
+    # 10. training logic
+    ###################################################################
+    for epoch in range(start_epoch, epoch_num):
+        model_engine.train()
+        val_loss_ave = 0  # define a slot for saving validate loss
+        for step, train_batch in enumerate(train_dataloader, start=0):
+            # if step <= start_step:
+            #     print(f"jump step {step}")
+            #     continue
+
+            # print(train_batch)
+            # assign data to same device
+            # for key, value in train_batch.items():
+            #     print(f"Rank[{rank}]-{step}: {key}: shape={value.shape}, dtype={value.dtype}")
+
+            train_batch = {k: v.to(model_engine.local_rank) for k, v in train_batch.items()}
+
+            # forward propagate
+            train_loss, _ = model_engine(input_ids=train_batch["input_ids"],
+                                         attention_mask=train_batch["attention_mask"], labels=train_batch["input_ids"])
+
+            # back propagate
+            model_engine.backward(train_loss)
+
+            # update gradient each gradient_accumulation_steps
+            if (step + 1) % gradient_accumulation_steps == 0:
+                model_engine.step()
+                model_engine.zero_grad()
+
+            # running validate after val_after_step
+            if step > val_after_step and (step + 1) % val_interval == 0:
+                print("start evaluated ...")
+                val_loss_ave = 0
+                model_engine.eval()
+                with torch.no_grad():
+                    for val_step, val_batch in enumerate(val_dataloader):
+                        val_batch = {k: v.to(model_engine.local_rank) for k, v in val_batch.items()}
+                        val_loss, _ = model_engine(input_ids=val_batch["input_ids"],
+                                                   attention_mask=val_batch["attention_mask"],
+                                                   labels=val_batch["input_ids"])
+                        print(
+                            f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1}, val_step: {val_step + 1}, batch_loss: {val_loss.item():.4f}")
+                        val_loss_ave += val_loss.item()
+                val_loss_ave = val_loss_ave / val_data_size
+                # switch to training mode
+                model_engine.train()
+
+            print(
+                f"Rank[{rank}]: Epoch {epoch + 1}, step {step + 1} / {max_steps}, train_loss: {train_loss:.4f}, val_loss: {val_loss_ave:.4f}")
+
+            if step != 0 and step % save_interval == 0:
+                save_checkpoint_with_epoch(model_engine, save_checkpoints_dir, epoch, step, max_checkpoints)
+                print("Save checkpoint ...")
+    if rank == 0:
+        save_model(model_engine, save_final_model_dir)
 
