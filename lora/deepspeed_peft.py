@@ -335,7 +335,6 @@ if __name__ == '__main__':
             # update gradient each gradient_accumulation_steps
             if (step + 1) % gradient_accumulation_steps == 0:
                 model_engine.step()
-                model_engine.zero_grad()
 
             # running validate after val_after_step
             if step > val_after_step and (step + 1) % val_interval == 0:
