@@ -23,7 +23,7 @@ Note: Actually, I only use 30k Q-A normal data, but for evaluation, I use the be
 *img3: LoRA(lr:2e-5)* <br>
 ![img.png](imgs/img3.png)
 ![img.png](imgs/img4.png)
-![img.png](imgs/img5.png)
+![img.png](imgs/img5.png)<br>
 *img2-5: LoRA (lr:1e-4)* <br>
 ![img.png](imgs/img6.png)
 *img6: SFT* <br>
