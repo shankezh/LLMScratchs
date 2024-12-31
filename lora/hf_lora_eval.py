@@ -8,8 +8,8 @@ from model.hf_lmq_model import LMQModel,LMQConfig
 from utilities import check_network_params
 
 
-def init_model_and_tokenizer(model_path):
-    model = AutoPeftModelForCausalLM.from_pretrained(model_path)
+def init_model_and_tokenizer(model_path, device):
+    model = AutoPeftModelForCausalLM.from_pretrained(model_path, cache_dir="../sft/cache/QWEN2.5-0.5B", trust_remote_code=True)
     model_name = "Qwen/Qwen2.5-0.5B-Instruct"
     model.to(device)
     model = torch.compile(model)
@@ -22,23 +22,23 @@ def init_model_and_tokenizer(model_path):
 def get_prompts():
     prompt_datas = [
         "所有的猫都是动物。所有的动物都是猫。这两句话是一样的吗",
-        "近日，某公司宣布推出新款智能手机，该手机采用了全新的设计语言，具备强大的性能和长续航。请总结这句话。"
+        "近日，某公司宣布推出新款智能手机，该手机采用了全新的设计语言，具备强大的性能和长续航。请总结这句话。",
         "春风绿江南岸。生成下联。",
         "苹果公司今天发布了新的iPhone 15。找出其中的实体。",
         "人工智能正在改变世界，特别是在医疗和教育领域。关键词是什么？",
         "我喜欢打蓝球和足求。纠正其中的错误。",
         "这部电影让我非常失望，剧情很平庸。情感是积极的还是消极的还是中性的？",
-        "生成一个关于智能音箱的文案。"
+        "生成一个关于智能音箱的文案。",
         "如果下雨天你没有带伞，应该怎么办？需要你一步一步的思考。",
-        "地球的公转周期是多少天？"
+        "地球的公转周期是多少天？",
         "古诗仿写：窗含西岭千秋雪，门泊东吴万里船。",
-        "第一句：我喜欢吃苹果。第二句：苹果是我最喜欢的水果。请问相似度是多少？"
+        "第一句：我喜欢吃苹果。第二句：苹果是我最喜欢的水果。请问相似度是多少？",
         "青春，生成歌词。",
         "太阳系中有八大行星，地球是唯一已知存在生命的行星。地球在太阳系中有什么特点？",
         "学而时习之，不亦说乎？翻译文言文",
         "科技改变生活，生成作文",
         "张无忌站在山巅，远眺天边云海，心中百感交集。金庸风格续写。",
-        "请用简短的方式介绍一下自己。"
+        "请用简短的方式介绍一下自己。",
     ]
     return prompt_datas
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     # model_file = "./results_sft/gmq_sft"
     # model_name = "Qwen/Qwen2.5-0.5B"
     model_file = "./results/qwen25_0p5B"
-    model, tokenizer = init_model_and_tokenizer(model_file)
+    model, tokenizer = init_model_and_tokenizer(model_file, device)
     model.eval()
     # check_network_params(model)
     eval_prompts = get_prompts()
@@ -89,6 +89,7 @@ if __name__ == '__main__':
                 pad_token_id = tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 do_sample=True
+
             )
             decode_text = tokenizer.decode(output[0], skip_special_tokens=False)
             print("---------------------------------------")
