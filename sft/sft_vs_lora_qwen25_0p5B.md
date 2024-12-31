@@ -2,11 +2,11 @@
 Below is a contrast between SFT(Supervise Fine-Tuning) and LoRA(Low-Rank Adaptation), the base model is QWEN2.5-0.5B(Pretrain model).
 
 ## Basic Infos
-GPU: 4090 x 3
-batch_size: 8
-gradient_accumulation_steps: 8
-Number of Training Epoch: 1
-Total data items: 300k simple Q-A in Chinese
+GPU: 4090 x 3 <br>
+batch_size: 8 <br>
+gradient_accumulation_steps: 8 <br>
+Number of Training Epoch: 1 <br>
+Total data items: 300k simple Q-A in Chinese <br>
 
 # Data
 ## Training Loss
