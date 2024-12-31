@@ -1,8 +1,8 @@
 # Introduction
-This repo will show related content with LLM.
-Abilities Cover:
-Pretrain, SFT, DPO, LoRA etc.
-Offer pytorch, huggingface and DeepSpeed multi-versions.
+This repo will show related content with LLM. <br>
+Abilities Cover: <br>
+Pretrain, SFT, DPO, LoRA etc. <br>
+Offer pytorch, huggingface and DeepSpeed multi-versions. <br>
 这个仓库展示关于大模型相关内容，主要针对文本生成，且会覆盖训练和推理两个部分。
 对于代码部分，首先基于原理和相关学习资料，基于pytorch原生代码进行实现，然后再会根据当前热门框架，例如Huggingface等进行实现等。
 在实现过程中，会顺手将一些收集到的调参，训练心得等学习资料进行整理，用于分享和记录。
