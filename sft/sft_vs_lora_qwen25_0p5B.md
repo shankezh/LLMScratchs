@@ -24,9 +24,9 @@ Note: Actually, I only use 30k Q-A normal data, but for evaluation, I use the be
 ![img.png](imgs/img3.png)
 ![img.png](imgs/img4.png)
 ![img.png](imgs/img5.png)<br>
-*img2-5: LoRA (lr:1e-4)* <br>
+*img4-6: LoRA (lr:1e-4)* <br>
 ![img.png](imgs/img6.png)
-*img6: SFT* <br>
+*img7: SFT* <br>
 
 ## Sum up
 For LLM, the SFT and LoRA both can get similar effects.
