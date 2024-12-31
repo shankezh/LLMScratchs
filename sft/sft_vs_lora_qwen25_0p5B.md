@@ -11,22 +11,22 @@ Total data items: 300k simple Q-A in Chinese <br>
 # Data
 ## Training Loss
 ![img.png](imgs/img.png)
-*img1: SFT (lr:1e-4)*
-The lowest loss is 5/8 = 0.6
+*img1: SFT (lr:1e-4)* <br>
+The lowest loss is 5/8 = 0.6 <br>
 ![img_1.png](imgs/img_1.png)
-*img2: LoRA(lr:1e-4 / 2e-5)*
-The lowest are 10/8=1.25,15/8=1.875 respectively.
+*img2: LoRA(lr:1e-4 / 2e-5)* <br>
+The lowest are 10/8=1.25,15/8=1.875 respectively. <br>
 
 ## The Effects
-Note: Actually, I only use 30k Q-A normal data, but for evaluation, I use the before test question, hence will have a bit different, but still have effect.
+Note: Actually, I only use 30k Q-A normal data, but for evaluation, I use the before test question, hence will have a bit different, but still have effect. <br>
 ![img.png](imgs/img2.png)
-*img3: LoRA(lr:2e-5)*
+*img3: LoRA(lr:2e-5)* <br>
 ![img.png](imgs/img3.png)
 ![img.png](imgs/img4.png)
 ![img.png](imgs/img5.png)
-*img2-5: LoRA (lr:1e-4)*
+*img2-5: LoRA (lr:1e-4)* <br>
 ![img.png](imgs/img6.png)
-*img6: SFT*
+*img6: SFT* <br>
 
 ## Sum up
 For LLM, the SFT and LoRA both can get similar effects.
