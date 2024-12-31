@@ -1,5 +1,6 @@
 from peft import LoraConfig, TaskType, get_peft_model
 from torch.utils.data import DataLoader
+from torch.distributed import get_rank
 from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorWithPadding
 import torch
 import shutil
@@ -124,7 +125,7 @@ def load_checkpoint(model_engine, save_dir):
                 return None
             latest_checkpoint = max(checkpoints, key=lambda d: os.path.getmtime(os.path.join(save_dir, d)))
         obj = [latest_checkpoint]
-        torch.distributed.broadcast(obj, src=0)
+        torch.distributed.broadcast_object_list(obj, src=0)
         latest_checkpoint = obj[0]
 
         if latest_checkpoint is None:
