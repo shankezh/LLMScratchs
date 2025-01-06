@@ -29,4 +29,5 @@ Note: Actually, I only use 30k Q-A normal data, but for evaluation, I use the be
 *img7: SFT* <br>
 
 ## Sum up
-For LLM, the SFT and LoRA both can get similar effects.
+1.For LLM, the SFT and LoRA both can get similar effects.
+2.Supplement: I did a test only to fine-tine q,v TF-layer, found the effect is better than before twos.
