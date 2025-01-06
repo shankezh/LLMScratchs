@@ -13,6 +13,7 @@ Pretrain Guide:[Pretrain Link](pretrain) <br>
 
 SFT Guide:[SFT Link](sft) <br>
 > latest update: update lora vs SFT comparsion [comparsion link](sft/sft_vs_lora_qwen25_0p5B.md).
+> ![img.png](sft/imgs/img3.png) <br>
 
 DPO Guide:[DPO Link](dpo) <br>
 > latest update: using pytorch implement DPO.
