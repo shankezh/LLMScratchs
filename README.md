@@ -37,7 +37,7 @@ LLAMA 3.2<br>
 
 ## 推理
 如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)<br>
-> latest update: update the tutorials for GGUF and Quantize.
+> latest update: update the tutorials for GGUF and Quantize. <br>
 <img src="inference/llamacpp/imgs/img_1.png" alt="llama.cpp example" width="500"> <br>
 
 如果是GPU，推荐vLLM, Guide: [vLLM Link](inference/vllm/readme.md)<br>
