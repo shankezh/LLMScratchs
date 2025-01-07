@@ -117,7 +117,7 @@ if __name__ == '__main__':
     val_data_path = "../data/sft_val_data.jsonl"
     ds_config_path = "ds_config_qwen2_5.json"
     save_checkpoints_dir = "./checkpoints"
-    save_final_model_dir = "./results/qwen25_0p5B"
+    save_final_model_dir = "results/qwen25_0p5B"
     max_checkpoints = 3  # 3 checkpoints maximum remained
     save_interval = 5000  # how many steps to save checkpoint once
     epoch_num = 1
