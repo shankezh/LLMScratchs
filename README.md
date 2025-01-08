@@ -36,12 +36,12 @@ LLAMA 3.2<br>
 本项目使用chainlit作为前端chat界面。[WebUI Link](webui) to be coninued.
 
 ## 推理
-如果只有cpu，推荐:llama.cpp (如果简单使用开源模型，推荐安装ollama)<br>
+For CPU, Guide: [llama.cpp](inference/llamacpp) (Recommend ollama if only using simply)<br>
 > latest update: update the tutorials for GGUF and Quantize. <br>
 <img src="inference/llamacpp/imgs/img_1.png" alt="llama.cpp example" width="500"> <br>
 
-如果是GPU，推荐vLLM, Guide: [vLLM Link](inference/vllm/readme.md)<br>
-> latest update: 更新了使用qwen2.5 32B 量化模型使用案例
+For GPU，Guide: [vLLM Link](inference/vllm/readme.md)<br>
+> latest update: update example for 32B-QWEN2.5 quantization model.
 
 ## Agent
 to be continued. 代码已经完成，等后续补充.
